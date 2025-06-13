@@ -106,4 +106,7 @@ class PoseTranse {
     Vector3 trans;
 };
 
+using PoseTranseD = PoseTranse<double>;
+using PoseTranseF = PoseTranse<float>;
+
 }  // namespace slam
