@@ -58,7 +58,10 @@ include_directories(
   ${Eigen3_INCLUDE_DIRS}
 )
 
-add_executable(fusion_slam app/fusion_slam_node.cc)
+add_executable(fusion_slam 
+  app/fusion_slam_node.cc
+  src/SystemConfig.cc
+)
 target_link_libraries(fusion_slam 
   ${catkin_LIBRARIES}
   spdlog::spdlog 

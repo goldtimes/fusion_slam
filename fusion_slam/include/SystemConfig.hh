@@ -2,6 +2,7 @@
 
 #include <Eigen/Core>
 #include <memory>
+#include "common/logger.hpp"
 /**
     系统的配置类,用单例的方式来实现
 */
