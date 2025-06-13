@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(spdlog REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 
 ## Generate messages in the 'msg' folder
@@ -54,6 +55,7 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  ${Eigen3_INCLUDE_DIRS}
 )
 
 add_executable(fusion_slam app/fusion_slam_node.cc)
