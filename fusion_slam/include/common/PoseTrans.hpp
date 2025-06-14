@@ -37,7 +37,7 @@ class PoseTranse {
         trans = std::move(other.trans);
     }
     PoseTranse& operator=(PoseTranse&& other) {
-        if (this != other) {
+        if (this != &other) {
             Rot = std::move(other.Rot);
             trans = std::move(other.trans);
         }

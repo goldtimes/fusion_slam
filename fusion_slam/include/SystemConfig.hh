@@ -1,8 +1,12 @@
 #pragma onnce
 
 #include <Eigen/Core>
+#include <boost/filesystem.hpp>
 #include <memory>
+#include <string>
+#include "common/PoseTrans.hpp"
 #include "common/logger.hpp"
+#include "sensors/lidar.hh"
 /**
     系统的配置类,用单例的方式来实现
 */
@@ -15,8 +19,10 @@ class SystemConfig {
     SystemConfig& operator=(const SystemConfig& other) = delete;
     // 移动构造函数
     SystemConfig(SystemConfig&& other) = delete;
+    // 这里最后不要返回unique_ptr，uniqur无法拷贝
+    static SystemConfig& GetInstance();
 
-    static std::unique_ptr<SystemConfig>& GetInstance();
+    void SetConfigPath(const std::string& path);
 
    private:
     SystemConfig() = default;
@@ -25,6 +31,15 @@ class SystemConfig {
     static std::unique_ptr<SystemConfig> instance_ptr_;
 
    public:
+    std::string config_path;
+    // lidar->imu的外参信息
+    PoseTranse<double> T_I_L;
+    // lidar->轮速计的外参信息
+    PoseTranse<double> T_E_L;
+    std::string lidar_topic;
+    std::string imu_topic;
+    std::string encorder_topic;
+    std::string gnss_topic;
     enum class FUSION_MODE {
         // 滤波的方案
         IESKF_MODE = 1,
@@ -38,6 +53,30 @@ class SystemConfig {
         // 默认使用ieskf
         FUSION_MODE fusin_mode{FUSION_MODE::IESKF_MODE};
     };
+
+    FrontEndConfig frontend_config;
+
+    // 雷达的配置类
+    struct LidarConfig {
+        // 雷达类型
+        sensors::LIDAR_TYPE lidar_type;
+        // 雷达线束
+        int lidar_scan{};
+        int lidar_horizon_scan{};
+        // 过滤
+        int lidar_point_filter{};
+        // 垂直分辨率
+        double lidar_vertical_resolution{};
+        double lidar_lower_angle{};
+        // 雷达的时间scale
+        double lidar_time_scale{};
+        double lidar_rotation_noise{};
+        double lidar_position_noise{};
+        double lidar_min_dist{};
+        double lidar_max_dist{};
+    };
+    LidarConfig lidar_config;
+
     // imu初始化的配置类
     struct StaticImuInitConfig {
         // 静止的时间
@@ -51,11 +90,12 @@ class SystemConfig {
         double max_static_acc_var{0.05};
         double gravity_norm_{9.81};
     };
+    StaticImuInitConfig imu_init_config;
     // 回环检测的配置类
     struct LoopClosureConfig {};
     // 地图生成的配置类
     struct MappingConfig {};
     // 定位模式后端点云配准的配置类
-    struct LocalizedConifg {};
+    struct LocalizedConfig {};
 };
 }  // namespace slam

@@ -3,6 +3,10 @@ project(fusion_slam)
 
 add_compile_options(-std=c++17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
+# 添加编译选项
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -rdynamic")
+
+
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -10,6 +14,16 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(spdlog REQUIRED)
 find_package(Eigen3 REQUIRED)
+# 查找yaml-cpp库
+find_package(yaml-cpp REQUIRED)
+find_package(Boost REQUIRED COMPONENTS stacktrace_backtrace filesystem)
+# if(YAML_CPP_FOUND)
+#     message(STATUS "Found yaml-cpp version: ${YAML_CPP_VERSION}")
+#     message(STATUS "Using yaml-cpp include dirs: ${YAML_CPP_INCLUDE_DIRS}")
+#     include_directories(${YAML_CPP_INCLUDE_DIRS})
+# else()
+#     message(FATAL_ERROR "Could not find yaml-cpp")
+# endif()
 
 
 ## Generate messages in the 'msg' folder
@@ -56,16 +70,23 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${Eigen3_INCLUDE_DIRS}
+  ${YAML_CPP_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
 )
 
 add_executable(fusion_slam 
   app/fusion_slam_node.cc
   src/SystemConfig.cc
+  src/System.cc
 )
 target_link_libraries(fusion_slam 
   ${catkin_LIBRARIES}
   spdlog::spdlog 
   # $<$<BOOL:${MINGW}>:ws2_32>
+  ${YAML_CPP_LIBRARIES}
+  ${Boost_LIBRARIES}
+  pthread
+  dl
 )
 
 
