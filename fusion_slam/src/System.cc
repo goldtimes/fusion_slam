@@ -1,28 +1,35 @@
 #include "System.hh"
+// #include <livox_ros_driver/CustomMsg.h>
 #include <string>
 #include "SystemConfig.hh"
 #include "common/PoseTrans.hpp"
+#include "common/lidar_model.hh"
 #include "common/logger.hpp"
 
 namespace slam {
 System::System(const ros::NodeHandle& nh) : nh_(nh) {
     // 初始化配置文件
-    InitConfig();
+    InitConfigAndPrint();
+    InitLidarModel();
+
+    // ros接口
+    LOG_INFO("init sub pub");
+    InitSubPub();
 }
-void System::InitConfig() {
+void System::InitConfigAndPrint() {
     SystemConfig& config = SystemConfig::GetInstance();
 
     // sensor topic name
     nh_.getParam("sensor_topic/lidar_topic", config.lidar_topic);
     nh_.getParam("sensor_topic/imu_topic", config.imu_topic);
-
+    LOG_INFO("lidar_topic:{}", config.lidar_topic);
+    LOG_INFO("imu_topic:{}", config.imu_topic);
     int temp;
     // nh_.param("slam_mode", temp, 0);
     // slam_mode_ = static_cast<SLAM_MODE>(temp);
 
     // lidar config parameters
-    std::string lidar_type;
-    nh_.param<std::string>("lidar/lidar_sensor_type", lidar_type, "");
+    nh_.param<std::string>("lidar/lidar_sensor_type", config.lidar_config.lidar_type_, "");
     nh_.param("lidar/lidar_point_jump_span", config.lidar_config.lidar_point_filter, 2);
     nh_.param("lidar/lidar_scan", config.lidar_config.lidar_scan, 16);
     nh_.param("lidar/lidar_lower_angle", config.lidar_config.lidar_lower_angle, 0.0);
@@ -33,6 +40,17 @@ void System::InitConfig() {
     nh_.param("lidar/lidar_point_time_scale", config.lidar_config.lidar_time_scale, 1e9);
     nh_.param("lidar/lidar_rotation_noise_std", config.lidar_config.lidar_rotation_noise, 0.01);
     nh_.param("lidar/lidar_position_noise_std", config.lidar_config.lidar_position_noise, 0.03);
+    LOG_INFO("lidar_sensor_type:{}", config.lidar_config.lidar_type_);
+    LOG_INFO("lidar_point_jump_span:{}", config.lidar_config.lidar_point_filter);
+    LOG_INFO("lidar_scan:{}", config.lidar_config.lidar_scan);
+    LOG_INFO("lidar_lower_angle:{}", config.lidar_config.lidar_lower_angle);
+    LOG_INFO("lidar_horizon_scan:{}", config.lidar_config.lidar_horizon_scan);
+    LOG_INFO("lidar_vertical_resolution:{}", config.lidar_config.lidar_vertical_resolution);
+    LOG_INFO("lidar_use_min_distance:{}", config.lidar_config.lidar_min_dist);
+    LOG_INFO("lidar_use_max_distance:{}", config.lidar_config.lidar_max_dist);
+    LOG_INFO("lidar_time_scale:{}", config.lidar_config.lidar_time_scale);
+    LOG_INFO("lidar_rotation_noise:{}", config.lidar_config.lidar_rotation_noise);
+    LOG_INFO("lidar_position_noise_std:{}", config.lidar_config.lidar_position_noise);
 
     // imu config parameters
     // nh_.param("imu/has_orientation", config.imu_has_orientation_, false);
@@ -46,6 +64,7 @@ void System::InitConfig() {
 
     // gravity
     nh_.param("gravity", config.imu_init_config.gravity_norm_, 9.81);
+    LOG_INFO("lidar_position_noise_std:{}", config.lidar_config.lidar_position_noise);
 
     // calibration parameters
     std::vector<double> lidar_to_imu;
@@ -108,5 +127,40 @@ void System::InitConfig() {
     // nh_.param("loopclosure/near_neighbor_distance_threshold", config.lc_near_neighbor_distance_threshold_,
     // DoubleNaN); nh_.param("loopclosure/registration_converge_threshold", config.lc_registration_converge_threshold_,
     // FloatNaN);
+}
+
+void System::InitSubPub() {
+    const auto& config = SystemConfig::GetInstance();
+    if (LidarModel::GetInstance()->lidar_sensor_type_ == LidarModel::LIDAR_TYPE::AVIA) {
+        // lidar_sub_ = nh_.subscribe(config.lidar_topic, 10, &System::LivoxLidarCallback, this);
+    } else {
+        lidar_sub_ = nh_.subscribe(config.lidar_topic, 10, &System::LidarCallback, this);
+    }
+    imu_sub_ = nh_.subscribe(config.imu_topic, 200, &System::ImuCallback, this);
+}
+
+void System::InitLidarModel() {
+    LOG_INFO("Init Lidar Model");
+    if (SystemConfig::GetInstance().lidar_config.lidar_type_ == "None") {
+        LidarModel::GetInstance(SystemConfig::GetInstance().lidar_config.lidar_type_);
+        int lidar_horizon_scan = SystemConfig::GetInstance().lidar_config.lidar_horizon_scan;
+        LidarModel::GetInstance()->horizon_scan_num_ = lidar_horizon_scan;
+        LidarModel::GetInstance()->vertical_scan_num_ = SystemConfig::GetInstance().lidar_config.lidar_scan;
+        LidarModel::GetInstance()->h_res_ = Degree2Radian(360.0f / static_cast<float>(lidar_horizon_scan));
+        LidarModel::GetInstance()->v_res_ =
+            static_cast<float>(Degree2Radian(SystemConfig::GetInstance().lidar_config.lidar_vertical_resolution));
+        LidarModel::GetInstance()->lower_angle_ =
+            static_cast<float>(Degree2Radian(SystemConfig::GetInstance().lidar_config.lidar_lower_angle));
+    } else {
+        LidarModel::GetInstance(SystemConfig::GetInstance().lidar_config.lidar_type_);
+    }
+}
+void System::LidarCallback(const sensor_msgs::PointCloud2ConstPtr& lidar_msg) {
+}
+
+// void System::LivoxLidarCallback(const livox_ros_driver::CustomMsg::ConstPtr& msg) {
+// }
+
+void System::ImuCallback(const sensor_msgs::Imu::ConstPtr& imu_msg) {
 }
 }  // namespace slam

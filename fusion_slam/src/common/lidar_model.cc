@@ -5,10 +5,10 @@
 namespace slam {
 
 LidarModel* LidarModel::instance_ = nullptr;
-std::string LidarModel::lidar_type_ = nullptr;
-LidarModel* LidarModel::GetInstance(const std::string& lidar_type) {
+std::string LidarModel::lidar_type_ = "";
+LidarModel* LidarModel::GetInstance(const std::string lidar_type) {
     if (instance_ == nullptr) {
-        std::once_flag flag;
+        static std::once_flag flag;
         lidar_type_ = lidar_type;
         std::call_once(flag, [&]() { instance_ = new LidarModel(lidar_type); });
     }

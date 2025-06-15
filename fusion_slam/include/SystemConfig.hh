@@ -40,6 +40,7 @@ class SystemConfig {
     std::string imu_topic;
     std::string encorder_topic;
     std::string gnss_topic;
+
     enum class FUSION_MODE {
         // 滤波的方案
         IESKF_MODE = 1,
@@ -58,8 +59,7 @@ class SystemConfig {
 
     // 雷达的配置类
     struct LidarConfig {
-        // 雷达类型
-        sensors::LIDAR_TYPE lidar_type;
+        std::string lidar_type_ = "";
         // 雷达线束
         int lidar_scan{};
         int lidar_horizon_scan{};
