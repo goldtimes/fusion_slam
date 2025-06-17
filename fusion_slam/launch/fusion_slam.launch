@@ -1,6 +1,6 @@
 <launch>
+    <rosparam file="$(find fusion_slam)/config/config_common.yaml" command="load"/>
     <node pkg="fusion_slam" type="fusion_slam" name="fusion_slam_node" output="screen" >
-        <rosparam file="$(find fusion_slam)/config/config_common.yaml" command="load"/>
     </node>
     launch-prefix="gdb -ex run --args"
 </launch>

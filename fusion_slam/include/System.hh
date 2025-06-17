@@ -15,6 +15,11 @@
 #include <memory>
 #include "common/lidar_model.hh"
 #include "ros/ros.h"
+#include <deque>
+#include "sensors/imu.hh"
+#include "sensors/lidar.hh"
+#include "sensors/encoder.hh"
+#include "sensors/gnss.hh"
 namespace slam {
 class SystemConfig;
 };
@@ -45,6 +50,10 @@ class System {
     ros::Subscriber imu_sub_;
     ros::Subscriber gnss_sub_;
     ros::Subscriber encoder_sub_;
+    std::deque<IMUData> imu_queue_;
+    std::deque<PointCloudPtr> lidar_queue_;
+    std::deque<GNSSData> gnss_queue_;
+    std::deque<EncorderData> encorder_queue_;
 };
 
 }  // namespace slam

@@ -71,7 +71,7 @@ void System::InitConfigAndPrint() {
     nh_.getParam("calibration/lidar_to_imu", lidar_to_imu);
     Eigen::Matrix4d T_I_L = Eigen::Map<const Eigen::Matrix<double, 4, 4, Eigen::RowMajor>>(lidar_to_imu.data());
     config.T_I_L = PoseTranseD(T_I_L.block<3, 3>(0, 0), T_I_L.block<3, 1>(0, 3));
-    LOG_INFO("T_I_L:\n{}", T_I_L);
+    // LOG_INFO("T_I_L:\n{}", config.T_I_L);
     // frontend config parameters
     // nh_.param("frontend/registration_and_searcher_mode", config.registration_and_searcher_mode_, StringEmpty);
     // nh_.param("frontend/feature/corner_thres", config.loam_feature_corner_thres_, FloatNaN);

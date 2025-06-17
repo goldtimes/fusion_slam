@@ -20,11 +20,9 @@ class LidarModel {
         MID360 = 1,
         LEISHEN16 = 2,
         ROBOSENSE16 = 3,
-        Velodyne16 = 4,
-        Velodyne32 = 5,
-        Velodyne64 = 6,
-        OUSTER128 = 7,
-        NONE = 8,
+        Velodyne = 4,
+        OUSTER128 = 5,
+        NONE = 6,
     };
     LidarModel() = delete;
     LidarModel(const LidarModel &lidar_mode) = delete;
