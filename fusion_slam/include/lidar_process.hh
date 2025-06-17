@@ -19,6 +19,8 @@ namespace slam {
             ~LidarProcess() = default;
         public:
             PointCloudPtr ConvertMessageToCloud(sensor_msgs::PointCloud2::ConstPtr& lidar_msg);
+            // 机械式的雷达，旋转一周360度为0.1s
+            void ComputePointOffsetTime(const PointCloudPtr& cloud, const double lidar_rate);
         private:
         // 体素滤波器
         pcl::VoxelGrid<PointXYZIRT> corner_voxel_filter_;
