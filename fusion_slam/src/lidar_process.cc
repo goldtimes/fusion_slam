@@ -19,7 +19,7 @@ namespace slam {
         
     }
 
-    PointCloudPtr LidarProcess::ConvertMessageToCloud(sensor_msgs::PointCloud2::ConstPtr& lidar_msg){
+    PointCloudPtr LidarProcess::ConvertMessageToCloud(const sensor_msgs::PointCloud2::ConstPtr& lidar_msg){
         if (LidarModel::GetInstance()->lidar_sensor_type_ == LidarModel::LIDAR_TYPE::Velodyne){
             pcl::PointCloud<VelodynePointXYZIRT> cloud_vel;
             pcl::fromROSMsg(*lidar_msg, cloud_vel);

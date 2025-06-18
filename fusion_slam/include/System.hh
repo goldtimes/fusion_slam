@@ -14,14 +14,19 @@
 #include <yaml-cpp/yaml.h>
 #include <memory>
 #include "common/lidar_model.hh"
-#include "ros/ros.h"
 #include <deque>
+#include "sensor_msgs/NavSatFix.h"
 #include "sensors/imu.hh"
 #include "sensors/lidar.hh"
 #include "sensors/encoder.hh"
 #include "sensors/gnss.hh"
+#include "lidar_process.hh"
+#include <nav_msgs/Odometry.h>
+
+
 namespace slam {
 class SystemConfig;
+class LidarProcess;
 };
 
 namespace slam {
@@ -29,6 +34,8 @@ class System {
    public:
     System(const ros::NodeHandle& nh);
     ~System() = default;
+
+    void run();
 
    private:
     void InitConfigAndPrint();
@@ -39,11 +46,32 @@ class System {
 
     void LidarCallback(const sensor_msgs::PointCloud2ConstPtr& lidar_msg);
     void ImuCallback(const sensor_msgs::Imu::ConstPtr& imu_msg);
+    void OdomCallback(const nav_msgs::Odometry::ConstPtr& odom_msgs);
+    void GNSSCallback(const sensor_msgs::NavSatFix::ConstPtr& gnss_msgs);
     // void LivoxCallback();
+
+    bool sync_package();
+    
+
+    void rosIMUtoIMU(const sensor_msgs::Imu::ConstPtr& imu_msgs, IMUData& imu_data, bool is_livox=false, bool has_orientation = false){
+            imu_data.timestamped_ = static_cast<uint64_t>(imu_msgs->header.stamp.toSec() * 1e6);
+            if (is_livox){
+                const double gravity = 9.81;
+                imu_data.acc_ = Eigen::Vector3d(imu_msgs->linear_acceleration.x * 9.81, imu_msgs->linear_acceleration.y * 9.81,imu_msgs->linear_acceleration.z * 9.81);
+            }
+            imu_data.gyro_ = Eigen::Vector3d(imu_msgs->angular_velocity.x, imu_msgs->angular_velocity.y, imu_msgs->angular_velocity.z);
+            if (has_orientation){
+                imu_data.orientation.w() = imu_msgs->orientation.w;
+                imu_data.orientation.x() = imu_msgs->orientation.x;
+                imu_data.orientation.y() = imu_msgs->orientation.y;
+                imu_data.orientation.z() = imu_msgs->orientation.z;
+            }
+    }
 
    public:
    private:
     ros::NodeHandle nh_;
+    std::shared_ptr<LidarProcess> lidar_process_;
     // 不需要定义类的对象，因为是单例，程序的生命周期都存在
     // SystemConfig& sys_config;
     ros::Subscriber lidar_sub_;
@@ -52,8 +80,13 @@ class System {
     ros::Subscriber encoder_sub_;
     std::deque<IMUData> imu_queue_;
     std::deque<PointCloudPtr> lidar_queue_;
+    std::deque<double> lidar_time_queue_;
     std::deque<GNSSData> gnss_queue_;
     std::deque<EncorderData> encorder_queue_;
+
+    double last_lidar_timestamped_ = -1;
+    double last_imu_timestamped_ = -1;
+
 };
 
 }  // namespace slam

@@ -1,10 +1,13 @@
 #include "System.hh"
 // #include <livox_ros_driver/CustomMsg.h>
+#include <memory>
 #include <string>
-#include "SystemConfig.hh"
 #include "common/PoseTrans.hpp"
 #include "common/lidar_model.hh"
 #include "common/logger.hpp"
+#include "ros/init.h"
+#include "ros/rate.h"
+#include "sensors/imu.hh"
 
 namespace slam {
 System::System(const ros::NodeHandle& nh) : nh_(nh) {
@@ -15,6 +18,7 @@ System::System(const ros::NodeHandle& nh) : nh_(nh) {
     // ros接口
     LOG_INFO("init sub pub");
     InitSubPub();
+    lidar_process_ = std::make_shared<LidarProcess>();
 }
 void System::InitConfigAndPrint() {
     SystemConfig& config = SystemConfig::GetInstance();
@@ -155,12 +159,53 @@ void System::InitLidarModel() {
         LidarModel::GetInstance(SystemConfig::GetInstance().lidar_config.lidar_type_);
     }
 }
+
+void System::run(){
+    ros::Rate rate(1000);
+    while(ros::ok()){
+        ros::spinOnce();
+        if (!sync_package()){
+            rate.sleep();
+            continue;
+        }
+        // 处理消息
+    }
+}
+
 void System::LidarCallback(const sensor_msgs::PointCloud2ConstPtr& lidar_msg) {
+    double current_head_time = lidar_msg->header.stamp.toSec();
+    if (current_head_time < last_lidar_timestamped_){
+        LOG_INFO("lidar loop back, clear buffer");
+        lidar_queue_.clear();
+    }
+    // 将ros转换为自定义的消息类型
+    auto cloud = lidar_process_->ConvertMessageToCloud(lidar_msg);
+    lidar_queue_.push_back(cloud);
+    lidar_time_queue_.push_back(current_head_time);
+    last_lidar_timestamped_ = current_head_time;
 }
 
 // void System::LivoxLidarCallback(const livox_ros_driver::CustomMsg::ConstPtr& msg) {
 // }
 
 void System::ImuCallback(const sensor_msgs::Imu::ConstPtr& imu_msg) {
+    // 没有雷达消息则退出
+    if (last_lidar_timestamped_ < 0){
+        return ;
+    }
+    double imu_time = imu_msg->header.stamp.toSec();
+    if (last_imu_timestamped_ > 0 && imu_time < last_imu_timestamped_){
+        LOG_INFO("imu loop back, clear buffer");
+        return ;
+    }
+    last_imu_timestamped_ = imu_time;
+    IMUData imu_data;
+    bool is_livox = (LidarModel::GetInstance()->lidar_sensor_type_ == LidarModel::LIDAR_TYPE::MID360 || LidarModel::GetInstance()->lidar_sensor_type_ == LidarModel::LIDAR_TYPE::AVIA) ? true : false;
+    rosIMUtoIMU(imu_msg, imu_data, is_livox, SystemConfig::GetInstance().frontend_config.axis9_imu);
+    imu_queue_.push_back(imu_data);
+    // fastlivo这里对imu的状态进行了传播
 }
+
+void System::OdomCallback(const nav_msgs::Odometry::ConstPtr& odom_msgs){}
+void System::GNSSCallback(const sensor_msgs::NavSatFix::ConstPtr& gnss_msgs){}
 }  // namespace slam

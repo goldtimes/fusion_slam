@@ -15,7 +15,6 @@
 #include <memory>
 #include <string>
 #include "System.hh"
-#include "SystemConfig.hh"
 #include "common/logger.hpp"
 
 // 平台检测
@@ -151,10 +150,7 @@ int main(int argc, char** argv) {
     LOG_INFO("[Fusion Slam Node Start!]");
     std::string config_path;
     std::shared_ptr<slam::System> system_ptr = std::make_shared<slam::System>(nh_);
-    while (ros::ok()) {
-        ros::spinOnce();
-        rate.sleep();
-    }
+    system_ptr->run();
     LOG_INFO("[Fusion Slam Node Exit!]");
     return 0;
 }

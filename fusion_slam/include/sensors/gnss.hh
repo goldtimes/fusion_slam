@@ -3,6 +3,8 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <cstdint>
+#include <sensor_msgs/NavSatFix.h>
+#include <sensor_msgs/NavSatStatus.h>
 
 namespace slam {
     struct GNSSData {
