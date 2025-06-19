@@ -22,6 +22,7 @@
 #include "sensors/gnss.hh"
 #include "lidar_process.hh"
 #include <nav_msgs/Odometry.h>
+#include "common_lib.hh"
 
 
 namespace slam {
@@ -86,6 +87,7 @@ class System {
 
     double last_lidar_timestamped_ = -1;
     double last_imu_timestamped_ = -1;
+    bool imu_inited_ = false;
 
 };
 
