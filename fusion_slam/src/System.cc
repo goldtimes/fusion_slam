@@ -162,55 +162,54 @@ void System::InitLidarModel() {
     }
 }
 
-void System::run(){
+void System::run() {
     ros::Rate rate(1000);
-    while(ros::ok()){
+    while (ros::ok()) {
         ros::spinOnce();
         MeasureGroup measure;
-        if (!sync_package(measure)){
+        if (!sync_package(measure)) {
             rate.sleep();
             continue;
         }
         // 处理消息
         LOG_INFO("sync_package is ok");
         // imu的初始化和状态递推
-        if (!imu_inited_){
+        if (!imu_inited_) {
             // imu 初始化
-            if(true){
-                imu_inited_ = true;            
+            if (true) {
+                imu_inited_ = true;
             }
-            return ;
+            return;
         }
         // 雷达点云去畸变
         // lio模块
     }
 }
 
-bool System::sync_package(MeasureGroup& measure){
+bool System::sync_package(MeasureGroup& measure) {
     // 队列为空则不处理
-    if (lidar_queue_.empty() || imu_queue_.empty()){
+    if (lidar_queue_.empty() || imu_queue_.empty()) {
         return false;
     }
-    
-    if (use_odom_ && encorder_queue_.empty()){
+
+    if (use_odom_ && encorder_queue_.empty()) {
         opt_with_odom = false;
     }
-    if (use_gnss_ && gnss_queue_.empty()){
+    if (use_gnss_ && gnss_queue_.empty()) {
         opt_with_gnss = false;
     }
     // 未处理雷达的情况下
-    if (!process_lidar_){
+    if (!process_lidar_) {
         // 取出第一帧雷达
         measure.curr_cloud = lidar_queue_.front();
         measure.lidar_begin_time = lidar_time_queue_.front();
         // 判断雷达是否有异常
-        if (measure.curr_cloud->points.size() <= 1){
+        if (measure.curr_cloud->points.size() <= 1) {
             measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;
             LOG_ERROR("");
-        }else if (measure.curr_cloud->points.back().time < 0.5 * lidar_mean_scantime_){
-            measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;   
-        }
-        else{
+        } else if (measure.curr_cloud->points.back().time < 0.5 * lidar_mean_scantime_) {
+            measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;
+        } else {
             scan_num_++;
             measure.lidar_end_time = measure.lidar_begin_time + measure.curr_cloud->points.back().time;
             lidar_mean_scantime_ += (measure.curr_cloud->points.back().time - lidar_mean_scantime_) / scan_num_;
@@ -221,9 +220,9 @@ bool System::sync_package(MeasureGroup& measure){
     uint64_t imu_time = imu_queue_.front().timestamped_;
     measure.imus.clear();
     // 找到第一帧雷达之前的imu
-    while(!imu_queue_.empty() && imu_time < measure.lidar_end_time){
+    while (!imu_queue_.empty() && imu_time < measure.lidar_end_time) {
         imu_time = imu_queue_.front().timestamped_;
-        if (imu_time > measure.lidar_end_time){
+        if (imu_time > measure.lidar_end_time) {
             break;
         }
         measure.imus.push_back(imu_queue_.front());
@@ -231,24 +230,24 @@ bool System::sync_package(MeasureGroup& measure){
     }
     LOG_INFO("find imu size:{} begin lidar:{}", measure.imus.size(), measure.lidar_end_time);
     // 处理odom
-    if (use_odom_ && !encorder_queue_.empty()){
+    if (use_odom_ && !encorder_queue_.empty()) {
         measure.wheels.clear();
         uint64_t encoder_time = encorder_queue_.front().timestamped_;
-        while(!encorder_queue_.empty() && encoder_time < measure.lidar_end_time){
+        while (!encorder_queue_.empty() && encoder_time < measure.lidar_end_time) {
             encoder_time = encorder_queue_.front().timestamped_;
-            if (encoder_time > measure.lidar_end_time){
+            if (encoder_time > measure.lidar_end_time) {
                 break;
             }
             measure.wheels.push_back(encorder_queue_.front());
             encorder_queue_.pop_front();
         }
     }
-    if (use_gnss_ && !gnss_queue_.empty()){
+    if (use_gnss_ && !gnss_queue_.empty()) {
         measure.gpss.clear();
         uint64_t gnss_time = gnss_queue_.front().timestamped_;
-        while(!gnss_queue_.empty() && gnss_time < measure.lidar_end_time){
+        while (!gnss_queue_.empty() && gnss_time < measure.lidar_end_time) {
             gnss_time = gnss_queue_.front().timestamped_;
-            if (gnss_time > measure.lidar_end_time){
+            if (gnss_time > measure.lidar_end_time) {
                 break;
             }
             measure.gpss.push_back(gnss_queue_.front());
@@ -262,11 +261,9 @@ bool System::sync_package(MeasureGroup& measure){
     return true;
 }
 
-
-
 void System::LidarCallback(const sensor_msgs::PointCloud2ConstPtr& lidar_msg) {
     double current_head_time = lidar_msg->header.stamp.toSec();
-    if (current_head_time < last_lidar_timestamped_){
+    if (current_head_time < last_lidar_timestamped_) {
         LOG_INFO("lidar loop back, clear buffer");
         lidar_queue_.clear();
     }
@@ -283,22 +280,27 @@ void System::LidarCallback(const sensor_msgs::PointCloud2ConstPtr& lidar_msg) {
 
 void System::ImuCallback(const sensor_msgs::Imu::ConstPtr& imu_msg) {
     // 没有雷达消息则退出
-    if (last_lidar_timestamped_ < 0){
-        return ;
+    if (last_lidar_timestamped_ < 0) {
+        return;
     }
     double imu_time = imu_msg->header.stamp.toSec();
-    if (last_imu_timestamped_ > 0 && imu_time < last_imu_timestamped_){
+    if (last_imu_timestamped_ > 0 && imu_time < last_imu_timestamped_) {
         LOG_INFO("imu loop back, clear buffer");
-        return ;
+        return;
     }
     last_imu_timestamped_ = imu_time;
     IMUData imu_data;
-    bool is_livox = (LidarModel::GetInstance()->lidar_sensor_type_ == LidarModel::LIDAR_TYPE::MID360 || LidarModel::GetInstance()->lidar_sensor_type_ == LidarModel::LIDAR_TYPE::AVIA) ? true : false;
+    bool is_livox = (LidarModel::GetInstance()->lidar_sensor_type_ == LidarModel::LIDAR_TYPE::MID360 ||
+                     LidarModel::GetInstance()->lidar_sensor_type_ == LidarModel::LIDAR_TYPE::AVIA)
+                        ? true
+                        : false;
     rosIMUtoIMU(imu_msg, imu_data, is_livox, SystemConfig::GetInstance().frontend_config.axis9_imu);
     imu_queue_.push_back(imu_data);
     // fastlivo这里对imu的状态进行了传播
 }
 
-void System::OdomCallback(const nav_msgs::Odometry::ConstPtr& odom_msgs){}
-void System::GNSSCallback(const sensor_msgs::NavSatFix::ConstPtr& gnss_msgs){}
+void System::OdomCallback(const nav_msgs::Odometry::ConstPtr& odom_msgs) {
+}
+void System::GNSSCallback(const sensor_msgs::NavSatFix::ConstPtr& gnss_msgs) {
+}
 }  // namespace slam

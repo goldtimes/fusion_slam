@@ -18,6 +18,8 @@ find_package(Eigen3 REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(Boost REQUIRED COMPONENTS stacktrace_backtrace filesystem)
 find_package(PCL REQUIRED)
+add_definitions(${PCL_DEFINITIONS})
+link_directories(${PCL_LIBRARY_DIRS})
 # if(YAML_CPP_FOUND)
 #     message(STATUS "Found yaml-cpp version: ${YAML_CPP_VERSION}")
 #     message(STATUS "Using yaml-cpp include dirs: ${YAML_CPP_INCLUDE_DIRS}")
@@ -81,16 +83,18 @@ add_executable(fusion_slam
   src/SystemConfig.cc
   src/System.cc
   src/common/lidar_model.cc
+  src/lidar_process.cc
 )
 target_link_libraries(fusion_slam 
   ${catkin_LIBRARIES}
   spdlog::spdlog 
   # $<$<BOOL:${MINGW}>:ws2_32>
+  ${PCL_LIBRARIES}
+
   ${YAML_CPP_LIBRARIES}
   ${Boost_LIBRARIES}
-  ${PCL_LIBRIRIES}
   pthread
-  dl
+  tbb
 )
 
 
