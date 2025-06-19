@@ -1,10 +1,12 @@
 #include "System.hh"
 // #include <livox_ros_driver/CustomMsg.h>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include "common/PoseTrans.hpp"
 #include "common/lidar_model.hh"
 #include "common/logger.hpp"
+#include "common_lib.hh"
 #include "ros/init.h"
 #include "ros/rate.h"
 #include "sensors/imu.hh"
@@ -164,13 +166,103 @@ void System::run(){
     ros::Rate rate(1000);
     while(ros::ok()){
         ros::spinOnce();
-        if (!sync_package()){
+        MeasureGroup measure;
+        if (!sync_package(measure)){
             rate.sleep();
             continue;
         }
         // 处理消息
+        LOG_INFO("sync_package is ok");
+        // imu的初始化和状态递推
+        if (!imu_inited_){
+            // imu 初始化
+            if(true){
+                imu_inited_ = true;            
+            }
+            return ;
+        }
+        // 雷达点云去畸变
+        // lio模块
     }
 }
+
+bool System::sync_package(MeasureGroup& measure){
+    // 队列为空则不处理
+    if (lidar_queue_.empty() || imu_queue_.empty()){
+        return false;
+    }
+    
+    if (use_odom_ && encorder_queue_.empty()){
+        opt_with_odom = false;
+    }
+    if (use_gnss_ && gnss_queue_.empty()){
+        opt_with_gnss = false;
+    }
+    // 未处理雷达的情况下
+    if (!process_lidar_){
+        // 取出第一帧雷达
+        measure.curr_cloud = lidar_queue_.front();
+        measure.lidar_begin_time = lidar_time_queue_.front();
+        // 判断雷达是否有异常
+        if (measure.curr_cloud->points.size() <= 1){
+            measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;
+            LOG_ERROR("");
+        }else if (measure.curr_cloud->points.back().time < 0.5 * lidar_mean_scantime_){
+            measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;   
+        }
+        else{
+            scan_num_++;
+            measure.lidar_end_time = measure.lidar_begin_time + measure.curr_cloud->points.back().time;
+            lidar_mean_scantime_ += (measure.curr_cloud->points.back().time - lidar_mean_scantime_) / scan_num_;
+        }
+        process_lidar_ = true;
+    }
+    // 开始同步imu消息
+    uint64_t imu_time = imu_queue_.front().timestamped_;
+    measure.imus.clear();
+    // 找到第一帧雷达之前的imu
+    while(!imu_queue_.empty() && imu_time < measure.lidar_end_time){
+        imu_time = imu_queue_.front().timestamped_;
+        if (imu_time > measure.lidar_end_time){
+            break;
+        }
+        measure.imus.push_back(imu_queue_.front());
+        imu_queue_.pop_front();
+    }
+    LOG_INFO("find imu size:{} begin lidar:{}", measure.imus.size(), measure.lidar_end_time);
+    // 处理odom
+    if (use_odom_ && !encorder_queue_.empty()){
+        measure.wheels.clear();
+        uint64_t encoder_time = encorder_queue_.front().timestamped_;
+        while(!encorder_queue_.empty() && encoder_time < measure.lidar_end_time){
+            encoder_time = encorder_queue_.front().timestamped_;
+            if (encoder_time > measure.lidar_end_time){
+                break;
+            }
+            measure.wheels.push_back(encorder_queue_.front());
+            encorder_queue_.pop_front();
+        }
+    }
+    if (use_gnss_ && !gnss_queue_.empty()){
+        measure.gpss.clear();
+        uint64_t gnss_time = gnss_queue_.front().timestamped_;
+        while(!gnss_queue_.empty() && gnss_time < measure.lidar_end_time){
+            gnss_time = gnss_queue_.front().timestamped_;
+            if (gnss_time > measure.lidar_end_time){
+                break;
+            }
+            measure.gpss.push_back(gnss_queue_.front());
+            gnss_queue_.pop_front();
+        }
+    }
+    // 处理gnss
+    lidar_queue_.pop_front();
+    lidar_time_queue_.pop_front();
+    process_lidar_ = false;
+    return true;
+}
+
+
 
 void System::LidarCallback(const sensor_msgs::PointCloud2ConstPtr& lidar_msg) {
     double current_head_time = lidar_msg->header.stamp.toSec();
@@ -179,6 +271,7 @@ void System::LidarCallback(const sensor_msgs::PointCloud2ConstPtr& lidar_msg) {
         lidar_queue_.clear();
     }
     // 将ros转换为自定义的消息类型
+    // 这里计算了每个点的间隔时间，从0----xx
     auto cloud = lidar_process_->ConvertMessageToCloud(lidar_msg);
     lidar_queue_.push_back(cloud);
     lidar_time_queue_.push_back(current_head_time);

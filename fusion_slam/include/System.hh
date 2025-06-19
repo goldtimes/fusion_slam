@@ -12,6 +12,7 @@
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <yaml-cpp/yaml.h>
+#include <cstdint>
 #include <memory>
 #include "common/lidar_model.hh"
 #include <deque>
@@ -51,7 +52,7 @@ class System {
     void GNSSCallback(const sensor_msgs::NavSatFix::ConstPtr& gnss_msgs);
     // void LivoxCallback();
 
-    bool sync_package();
+    bool sync_package(MeasureGroup& measure);
     
 
     void rosIMUtoIMU(const sensor_msgs::Imu::ConstPtr& imu_msgs, IMUData& imu_data, bool is_livox=false, bool has_orientation = false){
@@ -85,9 +86,24 @@ class System {
     std::deque<GNSSData> gnss_queue_;
     std::deque<EncorderData> encorder_queue_;
 
+    bool use_odom_{false};
+    bool use_gnss_{false};
+
+    bool opt_with_odom{true};
+    bool opt_with_gnss{true};
+    
+    bool process_lidar_{false};
+
+    // 统计平均时间
+    double lidar_mean_scantime_ = 0.0;
+    uint64_t scan_num_ = 0;
+
+
     double last_lidar_timestamped_ = -1;
     double last_imu_timestamped_ = -1;
     bool imu_inited_ = false;
+
+    MeasureGroup measure_;
 
 };
 
