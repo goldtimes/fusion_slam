@@ -170,9 +170,10 @@ PointCloudPtr LidarProcess::ConvertMessageToCloud(const sensor_msgs::PointCloud2
             point.z = cloud_mid360.points[index].z;
             point.intensity = cloud_mid360.points[index].intensity;
             point.ring = 0;
-            // to us
+            // to us 这里得到的时间是相对于第一个点的偏移
             point.time = static_cast<float>((cloud_mid360.points[index].timestamp - cloud_mid360.points[0].timestamp) *
                                             SystemConfig::GetInstance().lidar_config.lidar_time_scale);
+            // LOG_INFO("point time:{},start time:{:03.6f}", point.time, cloud_mid360.points[0].timestamp);
             cloud_ptr->points[index] = point;
         });
         cloud_ptr->header = cloud_mid360.header;

@@ -179,7 +179,7 @@ void System::run() {
             if (true) {
                 imu_inited_ = true;
             }
-            return;
+            continue;
         }
         // 雷达点云去畸变
         // lio模块
@@ -216,8 +216,10 @@ bool System::sync_package(MeasureGroup& measure) {
         }
         process_lidar_ = true;
     }
+    // LOG_INFO("begin sync, lidar_end_time:{}, imu_queue_size:{}", measure.lidar_end_time, imu_queue_.size());
     // 开始同步imu消息
     uint64_t imu_time = imu_queue_.front().timestamped_;
+    // LOG_INFO("imu_time:{}", imu_time);
     measure.imus.clear();
     // 找到第一帧雷达之前的imu
     while (!imu_queue_.empty() && imu_time < measure.lidar_end_time) {
@@ -228,7 +230,7 @@ bool System::sync_package(MeasureGroup& measure) {
         measure.imus.push_back(imu_queue_.front());
         imu_queue_.pop_front();
     }
-    LOG_INFO("find imu size:{} begin lidar:{}", measure.imus.size(), measure.lidar_end_time);
+    // LOG_INFO("find imu size:{} begin lidar:{}", measure.imus.size(), measure.lidar_end_time);
     // 处理odom
     if (use_odom_ && !encorder_queue_.empty()) {
         measure.wheels.clear();
@@ -271,7 +273,8 @@ void System::LidarCallback(const sensor_msgs::PointCloud2ConstPtr& lidar_msg) {
     // 这里计算了每个点的间隔时间，从0----xx
     auto cloud = lidar_process_->ConvertMessageToCloud(lidar_msg);
     lidar_queue_.push_back(cloud);
-    lidar_time_queue_.push_back(current_head_time);
+    // 存储的us
+    lidar_time_queue_.push_back(static_cast<uint64_t>(current_head_time * 1e6));
     last_lidar_timestamped_ = current_head_time;
 }
 

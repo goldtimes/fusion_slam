@@ -86,7 +86,7 @@ class System {
     ros::Subscriber encoder_sub_;
     std::deque<IMUData> imu_queue_;
     std::deque<PointCloudPtr> lidar_queue_;
-    std::deque<double> lidar_time_queue_;
+    std::deque<uint64_t> lidar_time_queue_;
     std::deque<GNSSData> gnss_queue_;
     std::deque<EncorderData> encorder_queue_;
 
