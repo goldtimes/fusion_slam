@@ -69,6 +69,10 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
+
+# sophus 找到自己第三方库下面的sophus文件
+include_directories(${PROJECT_SOURCE_DIR}/thirdparty)
+
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
