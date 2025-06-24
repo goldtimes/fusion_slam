@@ -10,6 +10,7 @@
 #include "ros/init.h"
 #include "ros/rate.h"
 #include "sensors/imu.hh"
+#include "static_imu_init.hh"
 
 namespace slam {
 System::System(const ros::NodeHandle& nh) : nh_(nh) {
@@ -21,6 +22,7 @@ System::System(const ros::NodeHandle& nh) : nh_(nh) {
     LOG_INFO("init sub pub");
     InitSubPub();
     lidar_process_ = std::make_shared<LidarProcess>();
+    static_imu_init_ = std::make_shared<StateicImuInit>();
 }
 void System::InitConfigAndPrint() {
     SystemConfig& config = SystemConfig::GetInstance();
@@ -176,7 +178,9 @@ void System::run() {
         // imu的初始化和状态递推
         if (!imu_inited_) {
             // imu 初始化
-            if (true) {
+            static_imu_init_->AddMeasurements(measure);
+            static_imu_init_->TryInit();
+            if (static_imu_init_->GetInitSuccess()) {
                 imu_inited_ = true;
             }
             continue;
@@ -264,6 +268,7 @@ bool System::sync_package(MeasureGroup& measure) {
 }
 
 void System::LidarCallback(const sensor_msgs::PointCloud2ConstPtr& lidar_msg) {
+    // std::cout << "lidar callback" << std::endl;
     double current_head_time = lidar_msg->header.stamp.toSec();
     if (current_head_time < last_lidar_timestamped_) {
         LOG_INFO("lidar loop back, clear buffer");
