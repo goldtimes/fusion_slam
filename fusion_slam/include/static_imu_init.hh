@@ -56,6 +56,9 @@ class StateicImuInit {
         return R_GtoI;
     }
 
+   public:
+    IMUData last_imu_data;
+
    private:
     Options options_;
     std::deque<IMUData> init_imus_;

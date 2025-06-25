@@ -89,6 +89,7 @@ add_executable(fusion_slam
   src/common/lidar_model.cc
   src/lidar_process.cc
   src/static_imu_init.cc
+  src/imu_propagator.cc
 )
 target_link_libraries(fusion_slam 
   ${catkin_LIBRARIES}

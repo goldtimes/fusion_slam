@@ -6,11 +6,12 @@
 #include "common/PoseTrans.hpp"
 #include "common/lidar_model.hh"
 #include "common/logger.hpp"
+#include "common/navi_state.hh"
 #include "common_lib.hh"
+#include "imu_propagator.hh"
 #include "ros/init.h"
 #include "ros/rate.h"
 #include "sensors/imu.hh"
-#include "static_imu_init.hh"
 
 namespace slam {
 System::System(const ros::NodeHandle& nh) : nh_(nh) {
@@ -22,7 +23,7 @@ System::System(const ros::NodeHandle& nh) : nh_(nh) {
     LOG_INFO("init sub pub");
     InitSubPub();
     lidar_process_ = std::make_shared<LidarProcess>();
-    static_imu_init_ = std::make_shared<StateicImuInit>();
+    imu_propagator_ = std::make_shared<ImuProgator>();
 }
 void System::InitConfigAndPrint() {
     SystemConfig& config = SystemConfig::GetInstance();
@@ -176,15 +177,8 @@ void System::run() {
         // 处理消息
         LOG_INFO("sync_package is ok");
         // imu的初始化和状态递推
-        if (!imu_inited_) {
-            // imu 初始化
-            static_imu_init_->AddMeasurements(measure);
-            static_imu_init_->TryInit();
-            if (static_imu_init_->GetInitSuccess()) {
-                imu_inited_ = true;
-            }
-            continue;
-        }
+        NaviState current_state_;
+        imu_propagator_->Process(measure, current_state_);
         // 雷达点云去畸变
         // lio模块
     }

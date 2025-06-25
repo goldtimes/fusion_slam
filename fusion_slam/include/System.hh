@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include "imu_propagator.hh"
 #include "static_imu_init.hh"
 #define PCL_NO_PRECOMPILE
 
@@ -32,6 +33,7 @@ namespace slam {
 class SystemConfig;
 class LidarProcess;
 class StateicImuInit;
+class ImuProgator;
 };  // namespace slam
 
 namespace slam {
@@ -109,7 +111,7 @@ class System {
     bool imu_inited_ = false;
 
     MeasureGroup measure_;
-    std::shared_ptr<StateicImuInit> static_imu_init_;
+    std::shared_ptr<ImuProgator> imu_propagator_;
 };
 
 }  // namespace slam

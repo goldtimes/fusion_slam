@@ -58,6 +58,7 @@ bool StateicImuInit::TryInit() {
     // 估计测量噪声和零偏
     init_bg_ = mean_gyro;
     init_ba_ = mean_acce;
+    last_imu_data = init_imus_.back();
     // 施密特正交来对齐重力
     LOG_INFO("Align Gravity");
     grad_schmit(mean_acce, R_GtoI);
