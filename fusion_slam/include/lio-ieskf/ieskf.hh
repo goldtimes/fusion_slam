@@ -82,6 +82,7 @@ class IESKF {
     }
 
     bool Predict(const IMUData& last_imu, const IMUData& current_imu);
+    bool Predict(const double& dt, const Eigen::Vector3d& acc_mean, const Eigen::Vector3d& gyro_mean);
     // 点云的配准得到的观测矩阵和卡尔曼滤波中的矩阵相乘
     using CustomObsFunc = std::function<void(const SE3& pose, Eigen::Matrix<double, 18, 18>& HT_inv_H,
                                              Eigen::Matrix<double, 18, 1>& HT_Vinv_r)>;

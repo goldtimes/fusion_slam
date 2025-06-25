@@ -24,7 +24,7 @@ void IESKF::BuildNoise(const Options& options) {
 
 bool IESKF::Predict(const IMUData& last_imu, const IMUData& current_imu) {
     const double dt = current_imu.timestamped_ - last_imu.timestamped_;
-    const double dt2 = dt * dt2;
+    const double dt2 = dt * dt;
     // 中值积分
     Eigen::Vector3d acc_mean = (last_imu.acc_ + current_imu.acc_) / 2;
     Eigen::Vector3d gyro_mean = (last_imu.gyro_ + current_imu.gyro_) / 2;
@@ -48,6 +48,30 @@ bool IESKF::Predict(const IMUData& last_imu, const IMUData& current_imu) {
 
     cov_ = F * cov_ * F.transpose() + Q_;
     current_time_ = current_imu.timestamped_;
+    return true;
+}
+
+bool IESKF::Predict(const double& dt, const Eigen::Vector3d& acc_mean, const Eigen::Vector3d& gyro_mean) {
+    const double dt2 = dt * dt;
+
+    Vec3d new_p = p_ + v_ * dt + 0.5 * (R_ * (acc_mean - ba_)) * dt2 + 0.5 * g_ * dt2;
+    Vec3d new_v = v_ + (R_ * (acc_mean - ba_)) * dt + g_ * dt;
+    SO3 new_R = R_ * Sophus::SO3d::exp((gyro_mean - bg_) * dt);
+
+    R_ = new_R;
+    v_ = new_v;
+    p_ = new_p;
+
+    // 协方差的传播
+    Mat18d F = Mat18d::Identity();
+    F.template block<3, 3>(0, 3) = Mat3d::Identity() * dt;
+    F.template block<3, 3>(3, 6) = -R_.matrix() * SO3::hat(acc_mean - ba_) * dt;
+    F.template block<3, 3>(3, 12) = -R_.matrix() * dt;
+    F.template block<3, 3>(3, 15) = Mat3d::Identity() * dt;
+    F.template block<3, 3>(6, 6) = SO3::exp(-(gyro_mean - bg_) * dt).matrix();
+    F.template block<3, 3>(6, 9) = -Mat3d::Identity() * dt;
+
+    cov_ = F * cov_ * F.transpose() + Q_;
     return true;
 }
 

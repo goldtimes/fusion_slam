@@ -5,6 +5,7 @@
 #include "common/PoseTrans.hpp"
 #include "common/navi_state.hh"
 #include "common_lib.hh"
+#include "lio-ieskf/ieskf.hh"
 #include "sensors/encoder.hh"
 #include "sensors/gnss.hh"
 #include "sensors/imu.hh"
@@ -33,6 +34,7 @@ class ImuProgator {
     }
 
     void Process(const MeasureGroup& measures, NaviState& state);
+    void Propagation(const MeasureGroup& measures, NaviState& state);
 
    private:
     // 写文件
@@ -51,5 +53,8 @@ class ImuProgator {
     IMUData last_imu_data;
 
     bool gnss_inited_ = false;
+
+    // ieskf
+    std::shared_ptr<IESKF> ieskf_ptr_;
 };
 }  // namespace slam
