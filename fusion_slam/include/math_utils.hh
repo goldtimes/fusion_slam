@@ -1,8 +1,11 @@
 #pragma once
+#include <cmath>
 #include <iomanip>
 #include <numeric>
 
 namespace math {
+constexpr double kDEG2RAD = M_PI / 180.0;
+constexpr double kRAD2DEG = 180.0 / M_PI;
 /**
     C 为容器的类型 队列，vector
     D 为均值的类型 Eigen::Vector3d
