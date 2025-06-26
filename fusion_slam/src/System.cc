@@ -175,6 +175,7 @@ void System::run() {
             rate.sleep();
             continue;
         }
+        // 这里可以切换使用滤波的方式还是优化的方式
         // 处理消息
         LOG_INFO("sync_package is ok");
         // imu的初始化和状态递推, 以及点云的去畸变
@@ -182,7 +183,7 @@ void System::run() {
         PointCloudPtr undistor_pcl(new PointCloud);
         // save pointcloud
         imu_propagator_->Process(measure, current_state_, undistor_pcl);
-        // lio模块
+        // lio模块，一个抽象类。
     }
 }
 
