@@ -2,6 +2,7 @@
 #include <fstream>
 #include <memory>
 #include <ostream>
+#include <vector>
 #include "common/PoseTrans.hpp"
 #include "common/navi_state.hh"
 #include "common_lib.hh"
@@ -51,10 +52,11 @@ class ImuProgator {
     PoseTranseD T_GPStoI_;
 
     IMUData last_imu_data;
-
+    double last_lidar_end_time = -1;
     bool gnss_inited_ = false;
 
     // ieskf
     std::shared_ptr<IESKF> ieskf_ptr_;
+    std::vector<NaviState> imu_states_;
 };
 }  // namespace slam

@@ -21,6 +21,13 @@ struct NaviState {
         return Sophus::SE3d(R_, p_);
     }
 
+    friend std::ostream& operator<<(std::ostream& os, const NaviState& s) {
+        os << "p: " << s.p_.transpose() << ", v: " << s.v_.transpose()
+           << ", q: " << s.R_.unit_quaternion().coeffs().transpose() << ", bg: " << s.bg_.transpose()
+           << ", ba: " << s.ba_.transpose();
+        return os;
+    }
+
     double timestamp_;
     Vec3d p_ = Vec3d::Zero();
     Vec3d v_ = Vec3d::Zero();
