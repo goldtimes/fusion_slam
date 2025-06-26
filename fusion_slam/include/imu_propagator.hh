@@ -34,8 +34,8 @@ class ImuProgator {
         T_GPStoI_ = T_GPStoI;
     }
 
-    void Process(const MeasureGroup& measures, NaviState& state);
-    void Propagation(const MeasureGroup& measures, NaviState& state);
+    void Process(const MeasureGroup& measures, NaviState& state, PointCloudPtr& pcl_out);
+    void Propagation(const MeasureGroup& measures, NaviState& state, PointCloudPtr& pcl_out);
 
    private:
     // 写文件

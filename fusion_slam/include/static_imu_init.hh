@@ -65,7 +65,7 @@ class StateicImuInit {
     bool init_success_ = false;
     bool try_to_init_ = false;
     // 静止的初始时间
-    uint64_t init_start_time = 0.0;
+    double init_start_time = 0.0;
     // 零偏
     Eigen::Vector3d init_bg_ = Eigen::Vector3d::Zero();
     Eigen::Vector3d init_ba_ = Eigen::Vector3d::Zero();

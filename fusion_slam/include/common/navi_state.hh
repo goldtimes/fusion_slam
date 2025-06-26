@@ -35,5 +35,7 @@ struct NaviState {
     Vec3d bg_ = Vec3d::Zero();
     Vec3d ba_ = Vec3d::Zero();
     Vec3d gravity_ = Vec3d::Zero();
+    Vec3d acc_ = Vec3d::Zero();
+    Vec3d gyro_ = Vec3d::Zero();
 };
 }  // namespace slam

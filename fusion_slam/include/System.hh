@@ -61,7 +61,7 @@ class System {
 
     void rosIMUtoIMU(const sensor_msgs::Imu::ConstPtr& imu_msgs, IMUData& imu_data, bool is_livox = false,
                      bool has_orientation = false) {
-        imu_data.timestamped_ = static_cast<uint64_t>(imu_msgs->header.stamp.toSec() * 1e6);
+        imu_data.timestamped_ = imu_msgs->header.stamp.toSec();
         if (is_livox) {
             const double gravity = 9.81;
             imu_data.acc_ =
@@ -90,7 +90,7 @@ class System {
     ros::Subscriber encoder_sub_;
     std::deque<IMUData> imu_queue_;
     std::deque<PointCloudPtr> lidar_queue_;
-    std::deque<uint64_t> lidar_time_queue_;
+    std::deque<double> lidar_time_queue_;
     std::deque<GNSSData> gnss_queue_;
     std::deque<EncorderData> encorder_queue_;
 

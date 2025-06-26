@@ -12,6 +12,7 @@
 #include "ros/init.h"
 #include "ros/rate.h"
 #include "sensors/imu.hh"
+#include "sensors/lidar.hh"
 
 namespace slam {
 System::System(const ros::NodeHandle& nh) : nh_(nh) {
@@ -176,10 +177,11 @@ void System::run() {
         }
         // 处理消息
         LOG_INFO("sync_package is ok");
-        // imu的初始化和状态递推
+        // imu的初始化和状态递推, 以及点云的去畸变
         NaviState current_state_;
-        imu_propagator_->Process(measure, current_state_);
-        // 雷达点云去畸变
+        PointCloudPtr undistor_pcl(new PointCloud);
+        // save pointcloud
+        imu_propagator_->Process(measure, current_state_, undistor_pcl);
         // lio模块
     }
 }
@@ -204,19 +206,24 @@ bool System::sync_package(MeasureGroup& measure) {
         // 判断雷达是否有异常
         if (measure.curr_cloud->points.size() <= 1) {
             measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;
-            LOG_ERROR("");
+            LOG_INFO("curr_cloud points size < 1");
         } else if (measure.curr_cloud->points.back().time < 0.5 * lidar_mean_scantime_) {
             measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;
         } else {
             scan_num_++;
             measure.lidar_end_time = measure.lidar_begin_time + measure.curr_cloud->points.back().time;
+            // LOG_INFO("lidar_begin_time:{},lidar_end_time:{}", measure.lidar_begin_time, measure.lidar_end_time);
+            // LOG_INFO("back time:{}", measure.curr_cloud->points.back().time);
+            // LOG_INFO("begin sync, lidar_begin_time:{}, lidar_end_time:{}, imu_queue_size:{}",
+            //          measure.lidar_begin_time , measure.lidar_end_time , imu_queue_.size());
             lidar_mean_scantime_ += (measure.curr_cloud->points.back().time - lidar_mean_scantime_) / scan_num_;
+            LOG_INFO("lidar_mean_scantime:{}", lidar_mean_scantime_);
         }
         process_lidar_ = true;
     }
-    // LOG_INFO("begin sync, lidar_end_time:{}, imu_queue_size:{}", measure.lidar_end_time, imu_queue_.size());
+
     // 开始同步imu消息
-    uint64_t imu_time = imu_queue_.front().timestamped_;
+    double imu_time = imu_queue_.front().timestamped_;
     // LOG_INFO("imu_time:{}", imu_time);
     measure.imus.clear();
     // 找到第一帧雷达之前的imu
@@ -228,7 +235,13 @@ bool System::sync_package(MeasureGroup& measure) {
         measure.imus.push_back(imu_queue_.front());
         imu_queue_.pop_front();
     }
-    // LOG_INFO("find imu size:{} begin lidar:{}", measure.imus.size(), measure.lidar_end_time);
+
+    LOG_INFO("find imu size:{} begin lidar:{}", measure.imus.size(), measure.lidar_end_time);
+    if (!measure.imus.empty()) {
+        LOG_INFO("lidar_begin_time:{},lidar_end_time:{}", measure.lidar_begin_time, measure.lidar_end_time);
+        LOG_INFO("imu_begin_time:{}, imu_end_time:{}", measure.imus.begin()->timestamped_,
+                 measure.imus.back().timestamped_);
+    }
     // 处理odom
     if (use_odom_ && !encorder_queue_.empty()) {
         measure.wheels.clear();
@@ -273,7 +286,7 @@ void System::LidarCallback(const sensor_msgs::PointCloud2ConstPtr& lidar_msg) {
     auto cloud = lidar_process_->ConvertMessageToCloud(lidar_msg);
     lidar_queue_.push_back(cloud);
     // 存储的us
-    lidar_time_queue_.push_back(static_cast<uint64_t>(current_head_time * 1e6));
+    lidar_time_queue_.push_back(current_head_time);
     last_lidar_timestamped_ = current_head_time;
 }
 

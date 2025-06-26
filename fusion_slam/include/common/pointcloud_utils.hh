@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include <pcl/io/io.h>
+#include <pcl/io/pcd_io.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -44,5 +46,10 @@ inline void RemoveNanFromPointCloud(const pcl::PointCloud<PointT>& cloud_in, pcl
         cloud_out.width = static_cast<uint32_t>(cloud_out_size);
         cloud_out.is_dense = true;
     }
+}
+inline void SavePcd(const std::string& path, const PointCloudPtr& cloud) {
+    cloud->height = 1;
+    cloud->width = cloud->size();
+    pcl::io::savePCDFileASCII(path, *cloud);
 }
 }  // namespace slam

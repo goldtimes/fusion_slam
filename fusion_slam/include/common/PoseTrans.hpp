@@ -47,18 +47,18 @@ class PoseTranse {
     // 重载乘法
     // 末尾的const作用是 保证了 const PoseTrans a * PoseTrans b可以通过编译
     // 并且不会修改this对象的成员
-    PoseTranse& operator*(const PoseTranse& other) const {
+    PoseTranse operator*(const PoseTranse& other) const {
         return PoseTranse(Rot * other.Rot, Rot * other.trans + trans);
     }
     // 点的乘法
-    Vector3& operator*(const Vector3& origin_point) const {
+    Vector3 operator*(const Vector3& origin_point) const {
         // 点变换
         return Rot * origin_point + trans;
     }
 
     // 逆变换
     PoseTranse inverse() const {
-        return PoseTrans(Rot.inverse(), -Rot.inverse() * trans);
+        return PoseTranse(Rot.inverse(), -Rot.inverse() * trans);
     }
 
     // 转换为齐次矩阵

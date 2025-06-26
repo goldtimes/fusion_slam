@@ -17,7 +17,7 @@ bool StateicImuInit::AddMeasurements(const MeasureGroup& measures) {
         init_start_time = measures.imus.begin()->timestamped_;
     }
     init_imus_.insert(init_imus_.end(), measures.imus.begin(), measures.imus.end());
-    int init_time = init_imus_.back().timestamped_ - init_start_time;
+    double init_time = init_imus_.back().timestamped_ - init_start_time;
     if (init_time > options_.init_time_seconds) {
         // 允许初始化
         try_to_init_ = true;
