@@ -17,9 +17,9 @@
 
 namespace slam {
 
-ImuProgator::ImuProgator() {
+ImuProgator::ImuProgator(const std::shared_ptr<IESKF>& ieskf) {
     static_imu_init_ = std::make_shared<StateicImuInit>();
-    ieskf_ptr_ = std::make_shared<IESKF>();
+    ieskf_ptr_ = ieskf;
 }
 ImuProgator::~ImuProgator() {
 }

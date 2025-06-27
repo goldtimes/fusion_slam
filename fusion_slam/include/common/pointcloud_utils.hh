@@ -52,4 +52,6 @@ inline void SavePcd(const std::string& path, const PointCloudPtr& cloud) {
     cloud->width = cloud->size();
     pcl::io::savePCDFileASCII(path, *cloud);
 }
+
+
 }  // namespace slam

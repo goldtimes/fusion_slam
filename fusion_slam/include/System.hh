@@ -10,6 +10,8 @@
 #pragma once
 
 #include "imu_propagator.hh"
+#include "lio-ieskf/ieskf.hh"
+#include "odom_matcher/odom_matcher.hh"
 #include "static_imu_init.hh"
 #define PCL_NO_PRECOMPILE
 
@@ -34,6 +36,7 @@ class SystemConfig;
 class LidarProcess;
 class StateicImuInit;
 class ImuProgator;
+class OdomMatcher;
 };  // namespace slam
 
 namespace slam {
@@ -112,6 +115,8 @@ class System {
 
     MeasureGroup measure_;
     std::shared_ptr<ImuProgator> imu_propagator_;
+    std::shared_ptr<OdomMatcher> odom_matcher_;
+    std::shared_ptr<IESKF> ieskf_;
 };
 
 }  // namespace slam

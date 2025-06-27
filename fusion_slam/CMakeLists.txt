@@ -78,7 +78,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${Eigen3_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDE_DIRS}
-  ${Boost_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS} 
   ${PCL_INCLUDE_DIRS}
 )
 
@@ -91,7 +91,11 @@ add_executable(fusion_slam
   src/static_imu_init.cc
   src/lio-ieskf/ieskf.cc
   src/imu_propagator.cc
+  src/odom_matcher/inc_ndt.cc
+  src/odom_matcher/odom_matcher.cc
+  src/odom_matcher/ndt_odom_matcher.cc
 )
+
 target_link_libraries(fusion_slam 
   ${catkin_LIBRARIES}
   spdlog::spdlog 

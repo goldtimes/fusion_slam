@@ -9,6 +9,8 @@
 #include "common/navi_state.hh"
 #include "common_lib.hh"
 #include "imu_propagator.hh"
+#include "lio-ieskf/ieskf.hh"
+#include "odom_matcher/ndt_odom_matcher.hh"
 #include "ros/init.h"
 #include "ros/rate.h"
 #include "sensors/imu.hh"
@@ -24,7 +26,9 @@ System::System(const ros::NodeHandle& nh) : nh_(nh) {
     LOG_INFO("init sub pub");
     InitSubPub();
     lidar_process_ = std::make_shared<LidarProcess>();
-    imu_propagator_ = std::make_shared<ImuProgator>();
+    ieskf_ = std::make_shared<IESKF>();
+    imu_propagator_ = std::make_shared<ImuProgator>(ieskf_);
+    odom_matcher_ = std::make_shared<NdtOdomMatcher>(ieskf_);
 }
 void System::InitConfigAndPrint() {
     SystemConfig& config = SystemConfig::GetInstance();
@@ -184,6 +188,10 @@ void System::run() {
         // save pointcloud
         imu_propagator_->Process(measure, current_state_, undistor_pcl);
         // lio模块，一个抽象类。
+        odom_matcher_->AddCloud(undistor_pcl);
+        odom_matcher_->Align();
+        // publish odom
+        
     }
 }
 

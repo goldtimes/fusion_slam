@@ -19,7 +19,7 @@
 namespace slam {
 class ImuProgator {
    public:
-    ImuProgator();
+    ImuProgator(const std::shared_ptr<IESKF>& ieskf);
     ~ImuProgator();
 
     void set_lidar_extrinsic(const PoseTranseD& T_LtoI) {
