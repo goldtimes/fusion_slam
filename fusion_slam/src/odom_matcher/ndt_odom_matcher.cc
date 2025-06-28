@@ -1,3 +1,12 @@
+/*
+ * @Author: lihang 1019825699@qq.com
+ * @Date: 2025-06-27 21:50:04
+ * @LastEditors: lihang 1019825699@qq.com
+ * @LastEditTime: 2025-06-28 14:49:40
+ * @FilePath: /fusion_slam_ws/src/fusion_slam/src/odom_matcher/ndt_odom_matcher.cc
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 #include "odom_matcher/ndt_odom_matcher.hh"
 #include <pcl/common/transforms.h>
 #include <memory>
@@ -16,12 +25,19 @@ NdtOdomMatcher::~NdtOdomMatcher() {
 }
 
 void NdtOdomMatcher::AddCloud(const PointCloudPtr& cloud) {
+    if (cloud->empty()) {
+        return;
+    }
     current_cloud_.reset(new PointCloud);
     current_cloud_ = cloud;
+    LOG_INFO("current_cloud size:{}", current_cloud_->size());
 }
 
 void NdtOdomMatcher::Align() {
     // 第一帧
+    if (current_cloud_->empty()) {
+        return;
+    }
     if (first_scan) {
         inc_ndt_ptr_->AddCloud(current_cloud_);
         first_scan = false;
@@ -43,5 +59,9 @@ void NdtOdomMatcher::Align() {
         inc_ndt_ptr_->AddCloud(cloud_world);
         last_pose_ = current_pose;
     }
+}
+
+SE3 NdtOdomMatcher::GetCurrentPose() {
+    return ieskf_ptr->GetNominalSE3();
 }
 }  // namespace slam

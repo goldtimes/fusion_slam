@@ -4,15 +4,18 @@
 #include <memory>
 #include <string>
 #include "common/PoseTrans.hpp"
+#include "common/eigen_type.hh"
 #include "common/lidar_model.hh"
 #include "common/logger.hpp"
 #include "common/navi_state.hh"
 #include "common_lib.hh"
 #include "imu_propagator.hh"
 #include "lio-ieskf/ieskf.hh"
+#include "nav_msgs/Odometry.h"
 #include "odom_matcher/ndt_odom_matcher.hh"
 #include "ros/init.h"
 #include "ros/rate.h"
+#include "ros/time.h"
 #include "sensors/imu.hh"
 #include "sensors/lidar.hh"
 
@@ -151,6 +154,8 @@ void System::InitSubPub() {
         lidar_sub_ = nh_.subscribe(config.lidar_topic, 10, &System::LidarCallback, this);
     }
     imu_sub_ = nh_.subscribe(config.imu_topic, 200, &System::ImuCallback, this);
+
+    odom_pub_ = nh_.advertise<nav_msgs::Odometry>("/fusion_slam/odom", 10);
 }
 
 void System::InitLidarModel() {
@@ -188,10 +193,15 @@ void System::run() {
         // save pointcloud
         imu_propagator_->Process(measure, current_state_, undistor_pcl);
         // lio模块，一个抽象类。
+        LOG_INFO("undistort_pcl size:{}", undistor_pcl->size());
+        if (undistor_pcl->empty()) {
+            continue;
+        }
         odom_matcher_->AddCloud(undistor_pcl);
         odom_matcher_->Align();
         // publish odom
-        
+        auto current_pose = odom_matcher_->GetCurrentPose();
+        PubOdom(odom_pub_, current_pose, Mat18d::Identity(), measure.lidar_end_time);
     }
 }
 
@@ -250,6 +260,12 @@ bool System::sync_package(MeasureGroup& measure) {
         LOG_INFO("lidar_begin_time:{},lidar_end_time:{}", measure.lidar_begin_time, measure.lidar_end_time);
         LOG_INFO("imu_begin_time:{}, imu_end_time:{}", measure.imus.begin()->timestamped_,
                  measure.imus.back().timestamped_);
+    }
+    if (measure.imus.empty()) {
+        lidar_queue_.pop_front();
+        lidar_time_queue_.pop_front();
+        process_lidar_ = false;
+        return false;
     }
     // 处理odom
     if (use_odom_ && !encorder_queue_.empty()) {
@@ -326,5 +342,28 @@ void System::ImuCallback(const sensor_msgs::Imu::ConstPtr& imu_msg) {
 void System::OdomCallback(const nav_msgs::Odometry::ConstPtr& odom_msgs) {
 }
 void System::GNSSCallback(const sensor_msgs::NavSatFix::ConstPtr& gnss_msgs) {
+}
+
+void System::PubOdom(const ros::Publisher& odom_pub, SE3& pose, const Mat18d& cov, double time) {
+    odom_after_ieskf_.header.frame_id = "odom";
+    odom_after_ieskf_.child_frame_id = "body";
+    odom_after_ieskf_.header.stamp = ros::Time(time);
+    odom_after_ieskf_.pose.pose.position.x = pose.translation().x();
+    odom_after_ieskf_.pose.pose.position.y = pose.translation().y();
+    odom_after_ieskf_.pose.pose.position.z = pose.translation().z();
+    odom_after_ieskf_.pose.pose.orientation.w = pose.so3().unit_quaternion().w();
+    odom_after_ieskf_.pose.pose.orientation.x = pose.so3().unit_quaternion().x();
+    odom_after_ieskf_.pose.pose.orientation.y = pose.so3().unit_quaternion().y();
+    odom_after_ieskf_.pose.pose.orientation.z = pose.so3().unit_quaternion().z();
+    odom_pub.publish(odom_after_ieskf_);
+    // for (int i = 0; i < 6; i++) {
+    //     int k = i < 3 ? i + 3 : i - 3;
+    //     odom_after_ieskf_.pose.covariance[i * 6 + 0] = cov(k, 3);
+    //     odom_after_ieskf_.pose.covariance[i * 6 + 1] = cov(k, 4);
+    //     odom_after_ieskf_.pose.covariance[i * 6 + 2] = cov(k, 5);
+    //     odom_after_ieskf_.pose.covariance[i * 6 + 3] = cov(k, 0);
+    //     odom_after_ieskf_.pose.covariance[i * 6 + 4] = cov(k, 1);
+    //     odom_after_ieskf_.pose.covariance[i * 6 + 5] = cov(k, 2);
+    // }
 }
 }  // namespace slam

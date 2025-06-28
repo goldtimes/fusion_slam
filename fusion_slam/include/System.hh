@@ -2,16 +2,18 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-06-14 02:39:34
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-06-20 00:29:09
+ * @LastEditTime: 2025-06-28 13:58:07
  * @FilePath: /fusion_slam_ws/src/fusion_slam/include/Sytem.hh
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%
  */
 #pragma once
 
+#include "common/eigen_type.hh"
 #include "imu_propagator.hh"
 #include "lio-ieskf/ieskf.hh"
 #include "odom_matcher/odom_matcher.hh"
+#include "ros/publisher.h"
 #include "static_imu_init.hh"
 #define PCL_NO_PRECOMPILE
 
@@ -58,6 +60,7 @@ class System {
     void ImuCallback(const sensor_msgs::Imu::ConstPtr& imu_msg);
     void OdomCallback(const nav_msgs::Odometry::ConstPtr& odom_msgs);
     void GNSSCallback(const sensor_msgs::NavSatFix::ConstPtr& gnss_msgs);
+    void PubOdom(const ros::Publisher& odom_pub, SE3& pose, const Mat18d& cov, double time);
     // void LivoxCallback();
 
     bool sync_package(MeasureGroup& measure);
@@ -91,6 +94,10 @@ class System {
     ros::Subscriber imu_sub_;
     ros::Subscriber gnss_sub_;
     ros::Subscriber encoder_sub_;
+
+    ros::Publisher odom_pub_;
+    nav_msgs::Odometry odom_after_ieskf_;
+
     std::deque<IMUData> imu_queue_;
     std::deque<PointCloudPtr> lidar_queue_;
     std::deque<double> lidar_time_queue_;

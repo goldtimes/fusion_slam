@@ -60,6 +60,7 @@ void IncNDT::AddCloud(const PointCloudPtr& cloud) {
         }
         active_grids.emplace(key);
     }
+    LOG_INFO("activate_grid:{}", active_grids.size());
     // 更新体素中的统计量
     std::for_each(std::execution::par_unseq, active_grids.begin(), active_grids.end(),
                   [this](const auto& key) { UpdateVoxel(grids_[key]->second); });
