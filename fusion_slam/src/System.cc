@@ -201,6 +201,7 @@ void System::run() {
         odom_matcher_->Align();
         // publish odom
         auto current_pose = odom_matcher_->GetCurrentPose();
+        // auto current_pose = current_state_.GetSE3();
         PubOdom(odom_pub_, current_pose, Mat18d::Identity(), measure.lidar_end_time);
     }
 }

@@ -94,6 +94,7 @@ bool IESKF::UpdateUsingCustomObserve(CustomObsFunc obs) {
         // 卡尔曼更新
         Qk = (Pk.inverse() + HTVH).inverse();  // 这个记作中间变量，最后更新时可以用
         dx_ = Qk * HTVr;
+        std::cout << "dx:" << dx_.transpose() << std::endl;
         Update();
         // 迭代条件结束
         if (dx_.norm() < options_.quit_eps_) {

@@ -74,6 +74,8 @@ void ImuProgator::Propagation(const MeasureGroup& measures, NaviState& state, Po
     imu_states_.emplace_back(imu_begin_state);
     imu_states_.back().acc_ = Vec3d::Zero();
     imu_states_.back().gyro_ = Vec3d::Zero();
+    std::sort(pcl_out->begin(), pcl_out->end(),
+              [](const PointXYZIRT& point_a, const PointXYZIRT& point_b) { return point_a.time < point_b.time; });
     auto imu_propagation_start = boost::posix_time::microsec_clock::local_time();
     // 遍历所有的imu数据
     for (auto it_imu = v_imus.begin(); it_imu < v_imus.end() - 1; it_imu++) {
@@ -87,12 +89,12 @@ void ImuProgator::Propagation(const MeasureGroup& measures, NaviState& state, Po
             continue;
         }
         if (head.timestamped_ < last_lidar_end_time) {
-            dt = (tail.timestamped_ - last_lidar_end_time) * 1e-6;
+            dt = (tail.timestamped_ - last_lidar_end_time);
             if (dt > 0.1) {
                 LOG_INFO("dt:{}", dt);
             }
         } else {
-            dt = (tail.timestamped_ - head.timestamped_) * 1e-6;
+            dt = (tail.timestamped_ - head.timestamped_);
             if (dt > 0.1) {
                 LOG_INFO("dt:{}", dt);
             }
@@ -107,7 +109,7 @@ void ImuProgator::Propagation(const MeasureGroup& measures, NaviState& state, Po
         imu_state.acc_ = ieskf_ptr_->GetNominalSE3().so3().matrix() * (acc_avr - ieskf_ptr_->GetNominalState().ba_);
         imu_state.gyro_ = (gyro_avr - ieskf_ptr_->GetNominalState().bg_);
         imu_states_.emplace_back(imu_state);
-        // std::cout << "state: " << imu_states_.back() << std::endl;
+        std::cout << "state: " << imu_states_.back() << std::endl;
     }
     //处理最后一个imu数据
     double note = pcl_end_time > imu_end_time ? 1.0 : -1.0;
@@ -123,8 +125,7 @@ void ImuProgator::Propagation(const MeasureGroup& measures, NaviState& state, Po
     pcl_out->clear();
     pcl_out = measures.curr_cloud;
     auto undistort_start_time = boost::posix_time::microsec_clock::local_time();
-    std::sort(pcl_out->begin(), pcl_out->end(),
-              [](const PointXYZIRT& point_a, const PointXYZIRT& point_b) { return point_a.time < point_b.time; });
+
     auto it_pcl = pcl_out->end() - 1;
     LOG_INFO("cloud size:{}", pcl_out->size());
     // SavePcd("/data/origin.pcd", pcl_out);
@@ -135,6 +136,7 @@ void ImuProgator::Propagation(const MeasureGroup& measures, NaviState& state, Po
     SO3 R_imu;
     Eigen::Vector3d vel_imu, pos_imu;
     Eigen::Vector3d acc_imu, gyro_imu;
+    // 这里去畸变好慢
     for (auto it_state = imu_states_.end() - 1; it_state != imu_states_.begin(); it_state--) {
         auto head = it_state - 1;
         auto tail = it_state;
