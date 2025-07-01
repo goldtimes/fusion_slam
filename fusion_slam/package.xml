@@ -33,6 +33,7 @@
   <build_export_depend>roscpp</build_export_depend>
   <depend>sensor_msgs</depend>
   <depend>message_runtime</depend>
+  <depend>tf</depend>
 
 
 

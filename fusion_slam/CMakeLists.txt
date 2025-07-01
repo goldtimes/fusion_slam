@@ -27,6 +27,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   message_generation
+  tf
 )
 
 add_subdirectory(include/3rd/livox_ros_driver)
@@ -53,12 +54,6 @@ add_subdirectory(include/3rd/livox_ros_driver)
 #   Action2.action
 # )
 
-## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES
-  std_msgs  # Or other packages containing msgs
-)
-
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES fusion_slam
@@ -67,6 +62,7 @@ catkin_package(
   roscpp
   sensor_msgs
   message_runtime
+  tf
 )
 
 ###########
@@ -81,9 +77,9 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/thirdparty
   )
   
-# message("---------------- ${catkin_INCLUDE_DIRS}")
+message("---------------- ${catkin_INCLUDE_DIRS}")
 include_directories(
-  ${PROJECT_SOURCE_DIR}/devel/include  # 手动添加devel路径
+  /catkin_ws/devel/include  # 手动添加devel路径
 )
 include_directories(
   include
@@ -108,6 +104,21 @@ add_executable(fusion_slam
   src/odom_matcher/ndt_odom_matcher.cc
 )
 target_link_libraries(fusion_slam 
+  ${catkin_LIBRARIES}
+  spdlog::spdlog 
+  # $<$<BOOL:${MINGW}>:ws2_32>
+  ${PCL_LIBRARIES}
+
+  ${YAML_CPP_LIBRARIES}
+  ${Boost_LIBRARIES}
+  pthread
+  tbb
+)
+
+add_executable(lio_node 
+  src/lio_node.cc
+)
+target_link_libraries(lio_node 
   ${catkin_LIBRARIES}
   spdlog::spdlog 
   # $<$<BOOL:${MINGW}>:ws2_32>
