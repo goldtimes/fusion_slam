@@ -77,9 +77,9 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/thirdparty
   )
   
-message("---------------- ${catkin_INCLUDE_DIRS}")
+message("---------------- ${CATKIN_DEVEL_PREFIX}")
 include_directories(
-  /catkin_ws/devel/include  # 手动添加devel路径
+  ${CATKIN_DEVEL_PREFIX}/include  # 手动添加devel路径
 )
 include_directories(
   include

@@ -9,6 +9,7 @@
 #include <thread>
 #include "SystemConfig.hh"
 #include "common/eigen_type.hh"
+#include "common/lidar_point_type.hh"
 #include "common/logger.hpp"
 #include "common_lib.hh"
 #include "livox_ros_driver/CustomMsg.h"
@@ -236,6 +237,7 @@ bool slam::LIONode::sync_package(MeasureGroup& measure) {
     }
     if (!lidar_pushed_) {
         measure.curr_cloud = lidar_queue_.front();
+
         measure.lidar_begin_time = lidar_time_queue_.front();
         if (measure.curr_cloud->points.size() <= 1) {
             measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;
@@ -244,6 +246,9 @@ bool slam::LIONode::sync_package(MeasureGroup& measure) {
             measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;
         } else {
             scan_num_++;
+            // sort
+            std::sort(measure.curr_cloud->begin(), measure.curr_cloud->end(),
+                      [](const PointXYZIRT& p1, const PointXYZIRT& p2) { return p1.time < p2.time; });
             measure.lidar_end_time = measure.lidar_begin_time + measure.curr_cloud->points.back().time;
             lidar_mean_scantime_ += (measure.curr_cloud->points.back().time - lidar_mean_scantime_) / scan_num_;
             LOG_INFO("lidar_mean_scantime:{}", lidar_mean_scantime_);
