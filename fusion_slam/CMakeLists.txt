@@ -4,13 +4,7 @@ project(fusion_slam)
 add_compile_options(-std=c++17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 # 添加编译选项
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -rdynamic")
-
-
-
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-)
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -rdynamic")
 
 find_package(spdlog REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -27,6 +21,15 @@ link_directories(${PCL_LIBRARY_DIRS})
 # else()
 #     message(FATAL_ERROR "Could not find yaml-cpp")
 # endif()
+
+
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  sensor_msgs
+  message_generation
+)
+
+add_subdirectory(include/3rd/livox_ros_driver)
 
 
 ## Generate messages in the 'msg' folder
@@ -51,16 +54,19 @@ link_directories(${PCL_LIBRARY_DIRS})
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs  # Or other packages containing msgs
+)
 
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES fusion_slam
- CATKIN_DEPENDS roscpp
+ CATKIN_DEPENDS
 #  DEPENDS system_lib
+  roscpp
+  sensor_msgs
+  message_runtime
 )
 
 ###########
@@ -71,8 +77,14 @@ catkin_package(
 ## Your package locations should be listed before other locations
 
 # sophus 找到自己第三方库下面的sophus文件
-include_directories(${PROJECT_SOURCE_DIR}/thirdparty)
-
+include_directories(
+  ${PROJECT_SOURCE_DIR}/thirdparty
+  )
+  
+# message("---------------- ${catkin_INCLUDE_DIRS}")
+include_directories(
+  ${PROJECT_SOURCE_DIR}/devel/include  # 手动添加devel路径
+)
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
@@ -95,7 +107,6 @@ add_executable(fusion_slam
   src/odom_matcher/odom_matcher.cc
   src/odom_matcher/ndt_odom_matcher.cc
 )
-
 target_link_libraries(fusion_slam 
   ${catkin_LIBRARIES}
   spdlog::spdlog 
