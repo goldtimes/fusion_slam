@@ -12,6 +12,8 @@
 #include "common/logger.hpp"
 #include "common_lib.hh"
 #include "livox_ros_driver/CustomMsg.h"
+#include "ros/init.h"
+#include "ros/rate.h"
 #include "static_imu_init.hh"
 
 namespace slam {
@@ -61,6 +63,8 @@ class LIONode {
     void ImuCallback(const sensor_msgs::Imu::ConstPtr& imu_msg);
     void StandardLidarCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg);
     void LivoxLidarCallback(const livox_ros_driver::CustomMsg::ConstPtr& livox_msg);
+
+    bool sync_package(MeasureGroup& measure);
     void rosIMUtoIMU(const sensor_msgs::Imu::ConstPtr& imu_msgs, IMUData& imu_data, bool is_livox = false,
                      bool has_orientation = false) {
         imu_data.timestamped_ = imu_msgs->header.stamp.toSec();
@@ -85,14 +89,16 @@ class LIONode {
         const double min_dist = m_node_config.lidar_min_range * m_node_config.lidar_min_range;
         const double max_dist = m_node_config.lidar_max_range * m_node_config.lidar_max_range;
         int point_num = livox_msg->point_num;
-        cloud->reserve(point_num / m_node_config.lidar_filter_num + 1);
+        cloud->reserve(point_num / m_node_config.lidar_filter_num);
         for (int i = 0; i < point_num; i += m_node_config.lidar_filter_num) {
             if ((livox_msg->points[i].line < 4) &&
                 ((livox_msg->points[i].tag & 0x30) == 0x10 || (livox_msg->points[i].tag & 0x30) == 0x00)) {
                 float x = livox_msg->points[i].x;
                 float y = livox_msg->points[i].y;
                 float z = livox_msg->points[i].z;
-                if (x * x + y * y + z * z < min_dist || x * x + y * y + z * z > max_dist) continue;
+                if (x * x + y * y + z * z < min_dist || x * x + y * y + z * z > max_dist) {
+                    continue;
+                }
                 PointXYZIRT p;
                 p.x = x;
                 p.y = y;
@@ -130,6 +136,10 @@ class LIONode {
 
     double last_imu_time;
     double last_lidar_time;
+
+    bool lidar_pushed_;
+    double lidar_mean_scantime_;
+    int scan_num_;
 };
 }  // namespace slam
 
@@ -148,15 +158,14 @@ slam::LIONode::LIONode(const ros::NodeHandle nh) : nh_(nh) {
 
 void slam::LIONode::loadParames() {
     std::string config_path;
-    nh_.param<std::string>("config_path", config_path);
+    nh_.param<std::string>("config_path", config_path, "");
+    LOG_INFO("LOAD FROM YAML CONFIG PATH: {}", config_path);
 
     YAML::Node config = YAML::LoadFile(config_path);
     if (!config) {
         LOG_INFO("FAIL TO LOAD YAML FILE!");
         return;
     }
-
-    LOG_INFO("LOAD FROM YAML CONFIG PATH: %s", config_path.c_str());
 
     m_node_config.imu_topic = config["imu_topic"].as<std::string>();
     m_node_config.lidar_topic = config["lidar_topic"].as<std::string>();
@@ -192,7 +201,6 @@ void slam::LIONode::loadParames() {
 }
 
 void slam::LIONode::ImuCallback(const sensor_msgs::Imu::ConstPtr& imu_msg) {
-    std::lock_guard<std::mutex> lck(imu_mutex_);
     IMUData imu_data;
     double curr_imu_time = imu_msg->header.stamp.toSec();
     if (curr_imu_time < last_imu_time) {
@@ -210,12 +218,10 @@ void slam::LIONode::ImuCallback(const sensor_msgs::Imu::ConstPtr& imu_msg) {
 void slam::LIONode::StandardLidarCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg) {
 }
 void slam::LIONode::LivoxLidarCallback(const livox_ros_driver::CustomMsg::ConstPtr& livox_msg) {
-    LOG_INFO("LivoxLidarCallback");
     PointCloudPtr cloud_ptr = livox2pcl(livox_msg);
-    std::lock_guard<std::mutex> lck(lidar_mutex_);
     double current_lidar_time = livox_msg->header.stamp.toSec();
     if (current_lidar_time < last_lidar_time) {
-        LOG_INFO("Detected lidar loop back");
+        LOG_ERROR("Detected lidar loop back");
         lidar_queue_.clear();
         lidar_time_queue_.clear();
     }
@@ -224,16 +230,76 @@ void slam::LIONode::LivoxLidarCallback(const livox_ros_driver::CustomMsg::ConstP
     last_lidar_time = current_lidar_time;
 }
 
+bool slam::LIONode::sync_package(MeasureGroup& measure) {
+    if (lidar_queue_.empty() || imu_queue_.empty()) {
+        return false;
+    }
+    if (!lidar_pushed_) {
+        measure.curr_cloud = lidar_queue_.front();
+        measure.lidar_begin_time = lidar_time_queue_.front();
+        if (measure.curr_cloud->points.size() <= 1) {
+            measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;
+            LOG_INFO("curr_cloud points size < 1");
+        } else if (measure.curr_cloud->points.back().time < 0.5 * lidar_mean_scantime_) {
+            measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;
+        } else {
+            scan_num_++;
+            measure.lidar_end_time = measure.lidar_begin_time + measure.curr_cloud->points.back().time;
+            lidar_mean_scantime_ += (measure.curr_cloud->points.back().time - lidar_mean_scantime_) / scan_num_;
+            LOG_INFO("lidar_mean_scantime:{}", lidar_mean_scantime_);
+        }
+        lidar_pushed_ = true;
+    }
+    // 开始同步imu消息
+    double imu_time = imu_queue_.front().timestamped_;
+    measure.imus.clear();
+    // 找到第一帧雷达之前的imu
+    while (!imu_queue_.empty() && imu_time < measure.lidar_end_time) {
+        imu_time = imu_queue_.front().timestamped_;
+        if (imu_time > measure.lidar_end_time) {
+            break;
+        }
+        measure.imus.push_back(imu_queue_.front());
+        imu_queue_.pop_front();
+    }
+
+    LOG_INFO("find imu size:{}", measure.imus.size());
+    if (!measure.imus.empty()) {
+        LOG_INFO("lidar_begin_time:{},lidar_end_time:{}", measure.lidar_begin_time, measure.lidar_end_time);
+        LOG_INFO("imu_begin_time:{}, imu_end_time:{}", measure.imus.begin()->timestamped_,
+                 measure.imus.back().timestamped_);
+    }
+    if (measure.imus.empty()) {
+        if (!lidar_queue_.empty()) lidar_queue_.pop_front();
+        if (!lidar_time_queue_.empty()) lidar_time_queue_.pop_front();
+        lidar_pushed_ = false;
+        return false;
+    }
+    lidar_queue_.pop_front();
+    lidar_time_queue_.pop_front();
+    lidar_pushed_ = false;
+    return true;
+}
+
 void slam::LIONode::run() {
+    ros::Rate rate(1000);
+    while (ros::ok()) {
+        MeasureGroup measure;
+        ros::spinOnce();
+        if (!sync_package(measure)) {
+            rate.sleep();
+            continue;
+        }
+        LOG_INFO("sync_package success");
+    }
 }
 
 int main(int argc, char** argv) {
     ros::init(argc, argv, "lio_node");
-    ros::NodeHandle nh;
+    ros::NodeHandle nh("~");
     std::shared_ptr<slam::LIONode> lio_node_ptr = std::make_shared<slam::LIONode>(nh);
 
     lio_node_ptr->run();
-    ros::spin();
     // join线程
     LOG_INFO("LioNode Exits");
     return 0;
