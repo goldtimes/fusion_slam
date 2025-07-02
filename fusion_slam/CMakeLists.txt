@@ -28,6 +28,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   message_generation
   tf
+  livox_ros_driver2
 )
 
 add_subdirectory(include/3rd/livox_ros_driver)
@@ -63,6 +64,7 @@ catkin_package(
   sensor_msgs
   message_runtime
   tf
+  livox_ros_driver2
 )
 
 ###########

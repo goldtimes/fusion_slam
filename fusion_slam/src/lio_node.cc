@@ -7,15 +7,14 @@
 #include <yaml-cpp/yaml.h>
 #include <mutex>
 #include <thread>
-#include "SystemConfig.hh"
 #include "common/eigen_type.hh"
 #include "common/lidar_point_type.hh"
 #include "common/logger.hpp"
 #include "common_lib.hh"
-#include "livox_ros_driver/CustomMsg.h"
-#include "ros/init.h"
-#include "ros/rate.h"
+#include "livox_ros_driver2/CustomMsg.h"
 #include "static_imu_init.hh"
+#include "sensors/imu.hh"
+#include "sensors/lidar.hh"
 
 namespace slam {
 class LIONode {
@@ -63,7 +62,7 @@ class LIONode {
 
     void ImuCallback(const sensor_msgs::Imu::ConstPtr& imu_msg);
     void StandardLidarCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg);
-    void LivoxLidarCallback(const livox_ros_driver::CustomMsg::ConstPtr& livox_msg);
+    void LivoxLidarCallback(const livox_ros_driver2::CustomMsg::ConstPtr& livox_msg);
 
     bool sync_package(MeasureGroup& measure);
     void rosIMUtoIMU(const sensor_msgs::Imu::ConstPtr& imu_msgs, IMUData& imu_data, bool is_livox = false,
@@ -85,7 +84,7 @@ class LIONode {
         }
     }
 
-    PointCloud::Ptr livox2pcl(const livox_ros_driver::CustomMsg::ConstPtr& livox_msg) {
+    PointCloud::Ptr livox2pcl(const livox_ros_driver2::CustomMsg::ConstPtr& livox_msg) {
         PointCloudPtr cloud(new PointCloud);
         const double min_dist = m_node_config.lidar_min_range * m_node_config.lidar_min_range;
         const double max_dist = m_node_config.lidar_max_range * m_node_config.lidar_max_range;
@@ -97,9 +96,6 @@ class LIONode {
                 float x = livox_msg->points[i].x;
                 float y = livox_msg->points[i].y;
                 float z = livox_msg->points[i].z;
-                if (x * x + y * y + z * z < min_dist || x * x + y * y + z * z > max_dist) {
-                    continue;
-                }
                 PointXYZIRT p;
                 p.x = x;
                 p.y = y;
@@ -219,7 +215,7 @@ void slam::LIONode::ImuCallback(const sensor_msgs::Imu::ConstPtr& imu_msg) {
 }
 void slam::LIONode::StandardLidarCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg) {
 }
-void slam::LIONode::LivoxLidarCallback(const livox_ros_driver::CustomMsg::ConstPtr& livox_msg) {
+void slam::LIONode::LivoxLidarCallback(const livox_ros_driver2::CustomMsg::ConstPtr& livox_msg) {
     PointCloudPtr cloud_ptr = livox2pcl(livox_msg);
     std::lock_guard<std::mutex> lock(lidar_mutex_);
     double current_lidar_time = livox_msg->header.stamp.toSec();
@@ -235,10 +231,10 @@ void slam::LIONode::LivoxLidarCallback(const livox_ros_driver::CustomMsg::ConstP
 
 bool slam::LIONode::sync_package(MeasureGroup& measure) {
     // 队列为空则不处理
-    if (lidar_queue_.empty() || imu_queue_.empty()) {
+    if (lidar_queue_.empty() || imu_queue_.empty() || lidar_time_queue_.empty()) {
         return false;
     }
-
+    
     // 未处理雷达的情况下
     if (!lidar_pushed_) {
         // 取出第一帧雷达
@@ -262,10 +258,9 @@ bool slam::LIONode::sync_package(MeasureGroup& measure) {
         }
         lidar_pushed_ = true;
     }
-
     // 开始同步imu消息
     double imu_time = imu_queue_.front().timestamped_;
-    // LOG_INFO("imu_time:{}", imu_time);
+    LOG_INFO("imu_time:{}", imu_time);
     measure.imus.clear();
     // 找到第一帧雷达之前的imu
     while (!imu_queue_.empty() && imu_time < measure.lidar_end_time) {
@@ -277,7 +272,7 @@ bool slam::LIONode::sync_package(MeasureGroup& measure) {
         imu_queue_.pop_front();
     }
 
-    LOG_INFO("find imu size:{} begin lidar:{}", measure.imus.size(), measure.lidar_end_time);
+    // LOG_INFO("find imu size:{} begin lidar:{}", measure.imus.size(), measure.lidar_end_time);
     if (!measure.imus.empty()) {
         LOG_INFO("lidar_begin_time:{},lidar_end_time:{}", measure.lidar_begin_time, measure.lidar_end_time);
         LOG_INFO("imu_begin_time:{}, imu_end_time:{}", measure.imus.begin()->timestamped_,
@@ -298,15 +293,16 @@ bool slam::LIONode::sync_package(MeasureGroup& measure) {
 }
 
 void slam::LIONode::run() {
-    ros::Rate rate(1000);
+    // 这里频率过快会有问题
+    ros::Rate rate(50);
     while (ros::ok()) {
+        rate.sleep();
         MeasureGroup measure;
         ros::spinOnce();
         if (!sync_package(measure)) {
             continue;
         }
-        rate.sleep();
-
+    
         LOG_INFO("sync_package success");
     }
 }

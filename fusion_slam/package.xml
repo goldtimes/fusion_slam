@@ -34,6 +34,7 @@
   <depend>sensor_msgs</depend>
   <depend>message_runtime</depend>
   <depend>tf</depend>
+  <depend>livox_ros_driver2</depend>
 
 
 
