@@ -5,16 +5,18 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_broadcaster.h>
 #include <yaml-cpp/yaml.h>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include "common/eigen_type.hh"
 #include "common/lidar_point_type.hh"
 #include "common/logger.hpp"
 #include "common_lib.hh"
+#include "fastlio_odom/fastkio_ieskf.hh"
 #include "livox_ros_driver2/CustomMsg.h"
-#include "static_imu_init.hh"
 #include "sensors/imu.hh"
 #include "sensors/lidar.hh"
+#include "static_imu_init.hh"
 
 namespace slam {
 class LIONode {
@@ -137,6 +139,8 @@ class LIONode {
     bool lidar_pushed_ = false;
     double lidar_mean_scantime_ = 0.0;
     uint64_t scan_num_ = 0;
+
+    std::shared_ptr<fastlio::FastlioIESKF> ieskf_;
 };
 }  // namespace slam
 
@@ -234,7 +238,7 @@ bool slam::LIONode::sync_package(MeasureGroup& measure) {
     if (lidar_queue_.empty() || imu_queue_.empty() || lidar_time_queue_.empty()) {
         return false;
     }
-    
+
     // 未处理雷达的情况下
     if (!lidar_pushed_) {
         // 取出第一帧雷达
@@ -302,7 +306,7 @@ void slam::LIONode::run() {
         if (!sync_package(measure)) {
             continue;
         }
-    
+
         LOG_INFO("sync_package success");
     }
 }

@@ -1,4 +1,14 @@
+/*
+ * @Author: lihang 1019825699@qq.com
+ * @Date: 2025-07-02 23:27:47
+ * @LastEditors: lihang 1019825699@qq.com
+ * @LastEditTime: 2025-07-02 23:45:29
+ * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/fastlio_ieskf.cc
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 #include "fastlio_odom/fastkio_ieskf.hh"
+#include "sophus/so3.hpp"
 
 namespace slam::fastlio {
 // 重写 + -
@@ -38,9 +48,65 @@ std::ostream& operator<<(std::ostream& os, const NavState& state) {
     return os;
 }
 
-void FastlioIESKF::Predict(const Vec3d& acc_mean, const Vec3d& gyro_mean, double dt, const M12D& Q) {
+void FastlioIESKF::Predict(const Vec3d& acc, const Vec3d& gyro, double dt, const M12D& Q) {
     // 状态和协方差的传播
+    V21D delta_x = V21D::Zero();
+    delta_x.segment<3>(0) = (gyro - state_.bg_) * dt;
+    delta_x.segment<3>(3) = state_.V_ * dt;
+    delta_x.segment<3>(12) = (state_.R_ * (acc - state_.ba_) + state_.g) * dt;
+    F_.setIdentity();
+    F_.block<3, 3>(0, 0) = Sophus::SO3d::exp(-(gyro - state_.bg_) * dt).matrix();
+    F_.block<3, 3>(0, 15) = -Sophus::SO3d::jr((gyro - state_.bg_) * dt) * dt;
+    F_.block<3, 3>(3, 12) = Eigen::Matrix3d::Identity() * dt;
+    F_.block<3, 3>(12, 0) = -state_.R_ * Sophus::SO3d::hat(acc - state_.ba_) * dt;
+    F_.block<3, 3>(12, 18) = -state_.R_ * dt;
+
+    G_.setZero();
+    G_.block<3, 3>(0, 0) = -Sophus::SO3d::jr((gyro - state_.R_ * dt)) * dt;
+    G_.block<3, 3>(12, 3) = -state_.R_ * dt;
+    G_.block<3, 3>(15, 6) = Eigen::Matrix3d::Identity() * dt;
+    G_.block<3, 3>(18, 9) = Eigen::Matrix3d::Identity() * dt;
+
+    state_ += delta_x;
+    cov_ = F_ * cov_ * F_.transpose() + G_ * Q * G_.transpose();
 }
 void FastlioIESKF::Update() {
+    NavState predict_x = state_;
+    SharedState shared_data;
+    shared_data.iter_num = 0;
+    shared_data.res = 1e10;
+    V21D delta = V21D::Zero();
+    M21D H = M21D::Identity();
+    V21D b;
+
+    for (size_t i = 0; i < max_iter_; i++) {
+        loss_func_(state_, shared_data);
+        if (!shared_data.valid) break;
+        H.setZero();
+        b.setZero();
+        delta = state_ - predict_x;
+        M21D J = M21D::Identity();
+        J.block<3, 3>(0, 0) = Sophus::SO3d::jr_inv(delta.segment<3>(0));
+        J.block<3, 3>(6, 6) = Sophus::SO3d::jr_inv(delta.segment<3>(6));
+        H += J.transpose() * cov_.inverse() * J;
+        b += J.transpose() * cov_.inverse() * delta;
+
+        H.block<12, 12>(0, 0) += shared_data.H;
+        b.block<12, 1>(0, 0) += shared_data.b;
+
+        delta = -H.inverse() * b;
+
+        state_ += delta;
+        shared_data.iter_num += 1;
+
+        if (stop_func_(delta)) break;
+    }
+
+    M21D L = M21D::Identity();
+    // L.block<3, 3>(0, 0) = JrInv(delta.segment<3>(0));
+    // L.block<3, 3>(6, 6) = JrInv(delta.segment<3>(6));
+    L.block<3, 3>(0, 0) = Sophus::SO3d::jr(delta.segment<3>(0));
+    L.block<3, 3>(6, 6) = Sophus::SO3d::jr(delta.segment<3>(6));
+    cov_ = L * H.inverse() * L.transpose();
 }
 }  // namespace slam::fastlio
