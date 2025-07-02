@@ -135,18 +135,18 @@ class LIONode {
     std::deque<PointCloud::Ptr> lidar_queue_;
     std::deque<double> lidar_time_queue_;
 
-    double last_imu_time;
-    double last_lidar_time;
+    double last_imu_time = -1;
+    double last_lidar_time = -1;
 
-    bool lidar_pushed_;
-    double lidar_mean_scantime_;
-    int scan_num_;
+    bool lidar_pushed_ = false;
+    double lidar_mean_scantime_ = 0.0;
+    uint64_t scan_num_ = 0;
 };
 }  // namespace slam
 
 slam::LIONode::LIONode(const ros::NodeHandle nh) : nh_(nh) {
     loadParames();
-    imu_sub_ = nh_.subscribe(m_node_config.imu_topic, 1000, &LIONode::ImuCallback, this);
+    imu_sub_ = nh_.subscribe(m_node_config.imu_topic, 200, &LIONode::ImuCallback, this);
     lidar_sub_ = m_node_config.livox_msg
                      ? nh_.subscribe(m_node_config.lidar_topic, 10, &LIONode::LivoxLidarCallback, this)
                      : nh_.subscribe(m_node_config.lidar_topic, 10, &LIONode::StandardLidarCallback, this);
@@ -203,6 +203,7 @@ void slam::LIONode::loadParames() {
 
 void slam::LIONode::ImuCallback(const sensor_msgs::Imu::ConstPtr& imu_msg) {
     IMUData imu_data;
+    std::lock_guard<std::mutex> lock(imu_mutex_);
     double curr_imu_time = imu_msg->header.stamp.toSec();
     if (curr_imu_time < last_imu_time) {
         LOG_INFO("Detected imu loop back");
@@ -220,6 +221,7 @@ void slam::LIONode::StandardLidarCallback(const sensor_msgs::PointCloud2::ConstP
 }
 void slam::LIONode::LivoxLidarCallback(const livox_ros_driver::CustomMsg::ConstPtr& livox_msg) {
     PointCloudPtr cloud_ptr = livox2pcl(livox_msg);
+    std::lock_guard<std::mutex> lock(lidar_mutex_);
     double current_lidar_time = livox_msg->header.stamp.toSec();
     if (current_lidar_time < last_lidar_time) {
         LOG_ERROR("Detected lidar loop back");
@@ -232,13 +234,17 @@ void slam::LIONode::LivoxLidarCallback(const livox_ros_driver::CustomMsg::ConstP
 }
 
 bool slam::LIONode::sync_package(MeasureGroup& measure) {
+    // 队列为空则不处理
     if (lidar_queue_.empty() || imu_queue_.empty()) {
         return false;
     }
-    if (!lidar_pushed_) {
-        measure.curr_cloud = lidar_queue_.front();
 
+    // 未处理雷达的情况下
+    if (!lidar_pushed_) {
+        // 取出第一帧雷达
+        measure.curr_cloud = lidar_queue_.front();
         measure.lidar_begin_time = lidar_time_queue_.front();
+        // 判断雷达是否有异常
         if (measure.curr_cloud->points.size() <= 1) {
             measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;
             LOG_INFO("curr_cloud points size < 1");
@@ -246,17 +252,20 @@ bool slam::LIONode::sync_package(MeasureGroup& measure) {
             measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;
         } else {
             scan_num_++;
-            // sort
-            std::sort(measure.curr_cloud->begin(), measure.curr_cloud->end(),
-                      [](const PointXYZIRT& p1, const PointXYZIRT& p2) { return p1.time < p2.time; });
-            measure.lidar_end_time = measure.lidar_begin_time + measure.curr_cloud->points.back().time;
-            lidar_mean_scantime_ += (measure.curr_cloud->points.back().time - lidar_mean_scantime_) / scan_num_;
+            measure.lidar_end_time = measure.lidar_begin_time + measure.curr_cloud->points.back().time / 1000.0;
+            // LOG_INFO("lidar_begin_time:{},lidar_end_time:{}", measure.lidar_begin_time, measure.lidar_end_time);
+            // LOG_INFO("back time:{}", measure.curr_cloud->points.back().time);
+            // LOG_INFO("begin sync, lidar_begin_time:{}, lidar_end_time:{}, imu_queue_size:{}",
+            //          measure.lidar_begin_time , measure.lidar_end_time , imu_queue_.size());
+            lidar_mean_scantime_ += (measure.curr_cloud->points.back().time / 100.0 - lidar_mean_scantime_) / scan_num_;
             LOG_INFO("lidar_mean_scantime:{}", lidar_mean_scantime_);
         }
         lidar_pushed_ = true;
     }
+
     // 开始同步imu消息
     double imu_time = imu_queue_.front().timestamped_;
+    // LOG_INFO("imu_time:{}", imu_time);
     measure.imus.clear();
     // 找到第一帧雷达之前的imu
     while (!imu_queue_.empty() && imu_time < measure.lidar_end_time) {
@@ -268,18 +277,20 @@ bool slam::LIONode::sync_package(MeasureGroup& measure) {
         imu_queue_.pop_front();
     }
 
-    LOG_INFO("find imu size:{}", measure.imus.size());
+    LOG_INFO("find imu size:{} begin lidar:{}", measure.imus.size(), measure.lidar_end_time);
     if (!measure.imus.empty()) {
         LOG_INFO("lidar_begin_time:{},lidar_end_time:{}", measure.lidar_begin_time, measure.lidar_end_time);
         LOG_INFO("imu_begin_time:{}, imu_end_time:{}", measure.imus.begin()->timestamped_,
                  measure.imus.back().timestamped_);
     }
     if (measure.imus.empty()) {
-        if (!lidar_queue_.empty()) lidar_queue_.pop_front();
-        if (!lidar_time_queue_.empty()) lidar_time_queue_.pop_front();
+        lidar_queue_.pop_front();
+        lidar_time_queue_.pop_front();
         lidar_pushed_ = false;
         return false;
     }
+
+    // 处理gnss
     lidar_queue_.pop_front();
     lidar_time_queue_.pop_front();
     lidar_pushed_ = false;
@@ -292,9 +303,10 @@ void slam::LIONode::run() {
         MeasureGroup measure;
         ros::spinOnce();
         if (!sync_package(measure)) {
-            rate.sleep();
             continue;
         }
+        rate.sleep();
+
         LOG_INFO("sync_package success");
     }
 }

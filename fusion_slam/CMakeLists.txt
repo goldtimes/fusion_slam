@@ -90,30 +90,30 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
 )
 
-add_executable(fusion_slam 
-  app/fusion_slam_node.cc
-  src/SystemConfig.cc
-  src/System.cc
-  src/common/lidar_model.cc
-  src/lidar_process.cc
-  src/static_imu_init.cc
-  src/lio-ieskf/ieskf.cc
-  src/imu_propagator.cc
-  src/odom_matcher/inc_ndt.cc
-  src/odom_matcher/odom_matcher.cc
-  src/odom_matcher/ndt_odom_matcher.cc
-)
-target_link_libraries(fusion_slam 
-  ${catkin_LIBRARIES}
-  spdlog::spdlog 
-  # $<$<BOOL:${MINGW}>:ws2_32>
-  ${PCL_LIBRARIES}
+# add_executable(fusion_slam 
+#   app/fusion_slam_node.cc
+#   src/SystemConfig.cc
+#   src/System.cc
+#   src/common/lidar_model.cc
+#   src/lidar_process.cc
+#   src/static_imu_init.cc
+#   src/lio-ieskf/ieskf.cc
+#   src/imu_propagator.cc
+#   src/odom_matcher/inc_ndt.cc
+#   src/odom_matcher/odom_matcher.cc
+#   src/odom_matcher/ndt_odom_matcher.cc
+# )
+# target_link_libraries(fusion_slam 
+#   ${catkin_LIBRARIES}
+#   spdlog::spdlog 
+#   # $<$<BOOL:${MINGW}>:ws2_32>
+#   ${PCL_LIBRARIES}
 
-  ${YAML_CPP_LIBRARIES}
-  ${Boost_LIBRARIES}
-  pthread
-  tbb
-)
+#   ${YAML_CPP_LIBRARIES}
+#   ${Boost_LIBRARIES}
+#   pthread
+#   tbb
+# )
 
 add_executable(lio_node 
   src/lio_node.cc
