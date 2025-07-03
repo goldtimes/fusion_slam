@@ -119,6 +119,11 @@ include_directories(
 
 add_executable(lio_node 
   src/lio_node.cc
+  src/static_imu_init.cc
+  src/fastlio_odom/fastlio_ieskf.cc
+  src/fastlio_odom/imu_process.cc
+  src/fastlio_odom/lidar_process.cc
+  src/fastlio_odom/fastlio_odom.cc
 )
 target_link_libraries(lio_node 
   ${catkin_LIBRARIES}

@@ -9,15 +9,37 @@
  */
 #pragma once
 #include <memory>
+#include "common_lib.hh"
+#include "fastlio_odom/fastkio_ieskf.hh"
 #include "fastlio_odom/imu_process.hh"
 #include "fastlio_odom/lidar_process.hh"
 namespace slam::fastlio {
 
+enum class ODOM_STATE {
+    IMU_INIT,
+    MAP_INIT,
+    MAPPING,
+};
+
 class FastLioOdom {
    public:
-    FastLioOdom();
+    FastLioOdom(const LIONodeConfig& config, std::shared_ptr<FastlioIESKF> ieskf);
+    ~FastLioOdom() = default;
+
+    const std::shared_ptr<FastLidarProcess>& GetLidarProcess() const {
+        return lidar_process_ptr_;
+    }
+
+    const ODOM_STATE& GetState() const {
+        return odom_state;
+    }
+
+    void ProcessSyncpackage(MeasureGroup& measure);
 
    private:
+    LIONodeConfig config_;
+    ODOM_STATE odom_state = ODOM_STATE::IMU_INIT;
+    std::shared_ptr<FastlioIESKF> ieskf_;
     std::shared_ptr<IMUProcess> imu_process_ptr_;
     std::shared_ptr<FastLidarProcess> lidar_process_ptr_;
 };

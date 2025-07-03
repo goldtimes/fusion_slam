@@ -9,16 +9,16 @@
  */
 #pragma once
 #include <memory>
+#include "common_lib.hh"
 #include "fastlio_odom/fastkio_ieskf.hh"
 #include "lidar_process.hh"
 namespace slam::fastlio {
 class FastLidarProcess {
    public:
-    struct LidarConfig {};
-    FastLidarProcess(const LidarConfig& config, std::shared_ptr<FastlioIESKF> ieskf);
+    FastLidarProcess(const LIONodeConfig& config, std::shared_ptr<FastlioIESKF> ieskf);
 
    private:
-    LidarConfig config_;
+    LIONodeConfig config_;
     std::shared_ptr<FastlioIESKF> ieskf_;
 };
 }  // namespace slam::fastlio

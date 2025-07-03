@@ -13,47 +13,16 @@
 #include "common/logger.hpp"
 #include "common_lib.hh"
 #include "fastlio_odom/fastkio_ieskf.hh"
+#include "fastlio_odom/fastlio_odom.hh"
 #include "livox_ros_driver2/CustomMsg.h"
 #include "sensors/imu.hh"
 #include "sensors/lidar.hh"
 #include "static_imu_init.hh"
 
 namespace slam {
+
 class LIONode {
    public:
-    struct LIONodeConfig {
-        std::string imu_topic;
-        std::string lidar_topic;
-        bool livox_msg;
-        std::string body_frame;
-        std::string world_frame;
-        bool print_time_cost;
-
-        int lidar_filter_num = 3;
-        double lidar_min_range = 0.5;
-        double lidar_max_range = 20.0;
-        double scan_resolution = 0.15;
-        double map_resolution = 0.3;
-
-        double cube_len = 300;
-        double det_range = 60;
-        double move_thresh = 1.5;
-
-        double na = 0.01;
-        double ng = 0.01;
-        double nba = 0.0001;
-        double nbg = 0.0001;
-        int imu_init_num = 20;
-        int near_search_num = 5;
-        int ieskf_max_iter = 5;
-        bool gravity_align = true;
-        bool esti_il = false;
-        Mat3d r_il = Mat3d::Identity();
-        Vec3d t_il = Vec3d::Zero();
-
-        double lidar_cov_inv = 1000.0;
-    };
-
     LIONode(const ros::NodeHandle nh);
     ~LIONode() = default;
 
@@ -141,6 +110,7 @@ class LIONode {
     uint64_t scan_num_ = 0;
 
     std::shared_ptr<fastlio::FastlioIESKF> ieskf_;
+    std::shared_ptr<fastlio::FastLioOdom> fastlio_odom_ptr_;
 };
 }  // namespace slam
 
@@ -155,6 +125,8 @@ slam::LIONode::LIONode(const ros::NodeHandle nh) : nh_(nh) {
     path_pub_ = nh_.advertise<nav_msgs::Path>("lio_path", 10);
     odom_pub_ = nh_.advertise<nav_msgs::Odometry>("lio_odom", 10);
     sync_thread_ = std::thread(&LIONode::run, this);
+    ieskf_ = std::make_shared<fastlio::FastlioIESKF>();
+    fastlio_odom_ptr_ = std::make_shared<fastlio::FastLioOdom>(m_node_config, ieskf_);
 }
 
 void slam::LIONode::loadParames() {

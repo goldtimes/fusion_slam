@@ -21,7 +21,7 @@ void NavState::operator+=(const V21D& delta) {
     bg_ += delta.segment<3>(15);
     ba_ += delta.segment<3>(18);
 }
-Vec3d NavState::operator-(const NavState& other) const {
+V21D NavState::operator-(const NavState& other) const {
     V21D delta = V21D::Zero();
     delta.segment<3>(0) = Sophus::SO3d(other.R_.transpose() * R_).log();
     delta.segment<3>(3) = P_ - other.P_;
@@ -62,7 +62,7 @@ void FastlioIESKF::Predict(const Vec3d& acc, const Vec3d& gyro, double dt, const
     F_.block<3, 3>(12, 18) = -state_.R_ * dt;
 
     G_.setZero();
-    G_.block<3, 3>(0, 0) = -Sophus::SO3d::jr((gyro - state_.R_ * dt)) * dt;
+    G_.block<3, 3>(0, 0) = -Sophus::SO3d::jr((gyro - state_.bg_) * dt) * dt;
     G_.block<3, 3>(12, 3) = -state_.R_ * dt;
     G_.block<3, 3>(15, 6) = Eigen::Matrix3d::Identity() * dt;
     G_.block<3, 3>(18, 9) = Eigen::Matrix3d::Identity() * dt;

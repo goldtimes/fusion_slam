@@ -10,16 +10,16 @@
 #pragma once
 #include <memory>
 #include "common/logger.hpp"
+#include "common_lib.hh"
 #include "fastlio_odom/fastkio_ieskf.hh"
 #include "static_imu_init.hh"
 namespace slam::fastlio {
 class IMUProcess {
    public:
-    struct IMUProcessConfig {};
-    IMUProcess(std::shared_ptr<FastlioIESKF> ieskf, const IMUProcessConfig& config);
+    IMUProcess(std::shared_ptr<FastlioIESKF> ieskf, const LIONodeConfig& config);
 
    private:
-    IMUProcessConfig imu_process_config_;
+    LIONodeConfig config_;
     std::shared_ptr<FastlioIESKF> ieskf_;
     std::shared_ptr<StateicImuInit> imu_init_ptr_;
 };

@@ -8,8 +8,9 @@
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AEa
  */
 #include "fastlio_odom/lidar_process.hh"
+#include "common_lib.hh"
 
 namespace slam::fastlio {
-FastLidarProcess::FastLidarProcess(const LidarConfig& config, std::shared_ptr<FastlioIESKF> ieskf) {
+FastLidarProcess::FastLidarProcess(const LIONodeConfig& config, std::shared_ptr<FastlioIESKF> ieskf) {
 }
 }  // namespace slam::fastlio

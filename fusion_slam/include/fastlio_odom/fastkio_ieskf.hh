@@ -45,12 +45,12 @@ struct NavState {
     Vec3d g = Vec3d(0.0, 0.0, -9.81);
     // 重写 + -
     void operator+=(const V21D& dx);
-    Vec3d operator-(const NavState& other) const;
+    V21D operator-(const NavState& other) const;
     // 重写 <<
     friend std::ostream& operator<<(std::ostream& os, const NavState& state);
 };
 using LossFunc = std::function<void(NavState&, SharedState&)>;
-using StopFunc = std::function<bool(const V12D&)>;
+using StopFunc = std::function<bool(const V21D&)>;
 class FastlioIESKF {
    public:
     FastlioIESKF() = default;
