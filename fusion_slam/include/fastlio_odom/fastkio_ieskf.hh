@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-02 00:10:49
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-02 00:14:36
+ * @LastEditTime: 2025-07-05 00:34:27
  * @FilePath: /fusion_slam_ws/src/fusion_slam/include/fastlio_odom/fastkio_ieskf.hh
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -61,6 +61,10 @@ class FastlioIESKF {
     void SetStopFunc(StopFunc stop_func) {
         stop_func_ = stop_func;
     }
+    // 设置初始化的旋转，外参，bg,ba,协方差噪声
+    void SetInitState(const Mat3d& R_wi, const Mat3d& R_IL, const Vec3d& t_IL, const Vec3d& bg, const Vec3d& ba,
+                      const Vec3d& gravity, const Vec3d& cov_acc, const Vec3d& cov_gyro);
+
     void Predict(const Vec3d& acc_mean, const Vec3d& gyro_mean, double dt, const M12D& Q);
     void Update();
 

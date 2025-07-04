@@ -2,15 +2,17 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-02 23:27:47
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-02 23:45:29
+ * @LastEditTime: 2025-07-05 00:42:50
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/fastlio_ieskf.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
+#include "common/eigen_type.hh"
 #include "fastlio_odom/fastkio_ieskf.hh"
 #include "sophus/so3.hpp"
 
 namespace slam::fastlio {
+
 // 重写 + -
 void NavState::operator+=(const V21D& delta) {
     R_ *= Sophus::SO3d::exp(delta.segment<3>(0)).matrix();
@@ -46,6 +48,22 @@ std::ostream& operator<<(std::ostream& os, const NavState& state) {
     os << "===============END================" << std::endl;
 
     return os;
+}  // 设置初始化的旋转，外参，bg,ba,协方差噪声
+void FastlioIESKF::SetInitState(const Mat3d& R_wi, const Mat3d& R_IL, const Vec3d& t_IL, const Vec3d& bg,
+                                const Vec3d& ba, const Vec3d& gravity, const Vec3d& cov_acc, const Vec3d& cov_gyro) {
+    state_.R_ = R_wi;
+    state_.R_LtoI = R_IL;
+    state_.t_LinI = t_IL;
+    state_.bg_ = bg;
+    state_.ba_ = ba;
+    state_.g = gravity;
+    cov_.setIdentity();
+    // 设置外参的协方差
+    cov_.block<3, 3>(6, 6) = Mat3d::Identity() * 0.0001;
+    cov_.block<3, 3>(9, 9) = Mat3d::Identity() * 0.0001;
+    // bg,ba
+    cov_.block<3, 3>(15, 15).diagonal() = cov_gyro;
+    cov_.block<3, 3>(18, 18).diagonal() = cov_acc;
 }
 
 void FastlioIESKF::Predict(const Vec3d& acc, const Vec3d& gyro, double dt, const M12D& Q) {
