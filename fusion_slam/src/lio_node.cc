@@ -278,8 +278,8 @@ void slam::LIONode::run() {
         if (!sync_package(measure)) {
             continue;
         }
-
         LOG_INFO("sync_package success");
+        fastlio_odom_ptr_->ProcessSyncpackage(measure);
     }
 }
 

@@ -3,6 +3,7 @@
 #include "common_lib.hh"
 #include "fastlio_odom/imu_process.hh"
 #include "fastlio_odom/lidar_process.hh"
+#include "sensors/lidar.hh"
 
 namespace slam::fastlio {
 
@@ -17,12 +18,15 @@ void FastLioOdom::ProcessSyncpackage(MeasureGroup& measure) {
     // 开始处理数据
     if (odom_state == ODOM_STATE::IMU_INIT) {
         // try to init
-        if (true) {
+        if (imu_process_ptr_->TrytoInit(measure)) {
+            LOG_INFO("imu init success!");
             odom_state = ODOM_STATE::MAP_INIT;
         }
         return;
     }
-    // undistort cloud;
+    // predict and undistort cloud;
+    PointCloud::Ptr undistort(new PointCloud);
+    imu_process_ptr_->PredictAndUndistort(measure, undistort);
     if (odom_state == ODOM_STATE::MAP_INIT) {
         // 第一帧
         return;
