@@ -45,6 +45,7 @@ class LIONode {
 
     void PublishTf(const std::string& parent_frame, const std::string& child_frame, double timestamped);
     void PublishOdom(const std::string& parent_frame, const std::string& child_frame, double timestamped);
+    void PublishPath(const std::string& frame_id, double timestamped);
     void PublishCloud(const PointCloudPtr& cloud, const std::string& frame, double timestamped);
 
     void rosIMUtoIMU(const sensor_msgs::Imu::ConstPtr& imu_msgs, IMUData& imu_data, bool is_livox = false,
@@ -102,6 +103,7 @@ class LIONode {
     ros::Publisher odom_pub_;
     tf::TransformBroadcaster tf_;
     MeasureGroup measures_;
+    nav_msgs::Path odom_path;
 
     LIONodeConfig m_node_config;
     // thead
@@ -140,6 +142,9 @@ slam::LIONode::LIONode(const ros::NodeHandle nh) : nh_(nh) {
     sync_thread_ = std::thread(&LIONode::run, this);
     ieskf_ = std::make_shared<fastlio::FastlioIESKF>();
     fastlio_odom_ptr_ = std::make_shared<fastlio::FastLioOdom>(m_node_config, ieskf_);
+
+    odom_path.header.frame_id = m_node_config.world_frame;
+    odom_path.poses.clear();
 }
 
 void slam::LIONode::loadParames() {
@@ -305,6 +310,7 @@ void slam::LIONode::run() {
         PointCloudPtr world_cloud = TransformCloud(measure.curr_cloud, fastlio_odom_ptr_->GetLidarProcess()->GetRLtoG(),
                                                    fastlio_odom_ptr_->GetLidarProcess()->GetTLtoG());
         PublishCloud(body_cloud, m_node_config.body_frame, measure.lidar_end_time);
+        PublishPath(m_node_config.world_frame, measure.lidar_end_time);
     }
 }
 
@@ -346,6 +352,22 @@ void slam::LIONode::PublishOdom(const std::string& parent_frame, const std::stri
     odom.twist.twist.linear.y = vel.y();
     odom.twist.twist.linear.z = vel.z();
     odom_pub_.publish(odom);
+}
+
+void slam::LIONode::PublishPath(const std::string& frame_id, double timestamped) {
+    geometry_msgs::PoseStamped pose;
+    pose.header.frame_id = frame_id;
+    pose.header.stamp = ros::Time(timestamped);
+    pose.pose.position.x = ieskf_->GetState().P_.x();
+    pose.pose.position.y = ieskf_->GetState().P_.y();
+    pose.pose.position.z = ieskf_->GetState().P_.z();
+    Eigen::Quaterniond q(ieskf_->GetState().R_);
+    pose.pose.orientation.x = q.x();
+    pose.pose.orientation.y = q.y();
+    pose.pose.orientation.z = q.z();
+    pose.pose.orientation.w = q.w();
+    odom_path.poses.push_back(pose);
+    path_pub_.publish(odom_path);
 }
 
 void slam::LIONode::PublishCloud(const PointCloudPtr& cloud, const std::string& frame, double timestamped) {

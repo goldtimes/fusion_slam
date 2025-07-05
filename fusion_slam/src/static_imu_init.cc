@@ -2,12 +2,13 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-06-26 22:45:51
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-05 17:27:21
+ * @LastEditTime: 2025-07-05 22:28:07
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/static_imu_init.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 #include "static_imu_init.hh"
+#include "common/eigen_type.hh"
 #include "common/logger.hpp"
 #include "common_lib.hh"
 #include "math_utils.hh"
@@ -70,10 +71,11 @@ bool StateicImuInit::TryInit() {
     last_imu_data = init_imus_.back();
     // 施密特正交来对齐重力
     // LOG_INFO("Align Gravity");
-    Eigen::Vector3d z_axis = mean_acce / mean_acce.norm();
-    grad_schmit(z_axis, R_GtoI);
-    LOG_INFO("R_GtoI:{}", R_GtoI);
-    // std::cout << "R_GtoI:\n" << R_GtoI.eulerAngles(2, 1, 0).transpose() << std::endl;
+    // Mat3d r_gtoi;
+    // Eigen::Vector3d z_axis = mean_acce / mean_acce.norm();
+    // grad_schmit(z_axis, r_gtoi);
+    // LOG_INFO("R_GtoI:{}", r_gtoi);
+    // std::cout << "R_GtoI:\n" << r_gtoi.eulerAngles(2, 1, 0).transpose() << std::endl;
     init_success_ = true;
     return true;
 }

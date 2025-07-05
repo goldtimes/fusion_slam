@@ -2,7 +2,7 @@ imu_topic: /livox/imu
 lidar_topic: /livox/lidar
 livox_msg: true
 body_frame: body
-world_frame: lidar
+world_frame: map
 print_time_cost: false
 
 lidar_filter_num: 1
@@ -28,6 +28,6 @@ gravity_align: true
 esti_il: false
 
 r_il: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
-t_il: [-0.011, -0.02329, 0.04412]
+t_il: [-0.011, -0.02329, 0.04412]  
 
 lidar_cov_inv: 1000.0
