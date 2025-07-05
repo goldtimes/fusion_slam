@@ -1,20 +1,26 @@
+#include <geometry_msgs/TransformStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <yaml-cpp/yaml.h>
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <thread>
 #include "common/eigen_type.hh"
 #include "common/lidar_point_type.hh"
 #include "common/logger.hpp"
+#include "common/pointcloud_utils.hh"
 #include "common_lib.hh"
 #include "fastlio_odom/fastkio_ieskf.hh"
 #include "fastlio_odom/fastlio_odom.hh"
 #include "livox_ros_driver2/CustomMsg.h"
+#include "pcl_conversions/pcl_conversions.h"
+#include "ros/time.h"
 #include "sensors/imu.hh"
 #include "sensors/lidar.hh"
 #include "static_imu_init.hh"
@@ -36,6 +42,11 @@ class LIONode {
     void LivoxLidarCallback(const livox_ros_driver2::CustomMsg::ConstPtr& livox_msg);
 
     bool sync_package(MeasureGroup& measure);
+
+    void PublishTf(const std::string& parent_frame, const std::string& child_frame, double timestamped);
+    void PublishOdom(const std::string& parent_frame, const std::string& child_frame, double timestamped);
+    void PublishCloud(const PointCloudPtr& cloud, const std::string& frame, double timestamped);
+
     void rosIMUtoIMU(const sensor_msgs::Imu::ConstPtr& imu_msgs, IMUData& imu_data, bool is_livox = false,
                      bool has_orientation = false) {
         imu_data.timestamped_ = imu_msgs->header.stamp.toSec();
@@ -111,6 +122,8 @@ class LIONode {
 
     std::shared_ptr<fastlio::FastlioIESKF> ieskf_;
     std::shared_ptr<fastlio::FastLioOdom> fastlio_odom_ptr_;
+    // tf
+    tf2_ros::TransformBroadcaster tf_broadcaster_;
 };
 }  // namespace slam
 
@@ -279,8 +292,68 @@ void slam::LIONode::run() {
             continue;
         }
         LOG_INFO("sync_package success");
+        auto odom_start_time = std::chrono::high_resolution_clock::now();
         fastlio_odom_ptr_->ProcessSyncpackage(measure);
+        auto odom_end_time = std::chrono::high_resolution_clock::now();
+        auto odom_time_used = std::chrono::duration_cast<std::chrono::microseconds>(odom_end_time - odom_start_time);
+        LOG_INFO("lio_odom used time:{}", odom_time_used.count() * 1e-6);
+        PublishTf(m_node_config.world_frame, m_node_config.body_frame, measure.lidar_end_time);
+        PublishOdom(m_node_config.world_frame, m_node_config.body_frame, measure.lidar_end_time);
+        PointCloudPtr body_cloud =
+            TransformCloud(measure.curr_cloud, ieskf_->GetState().R_LtoI, ieskf_->GetState().t_LinI);
+        PublishCloud(body_cloud, m_node_config.body_frame, measure.lidar_end_time);
+        PointCloudPtr world_cloud = TransformCloud(measure.curr_cloud, fastlio_odom_ptr_->GetLidarProcess()->GetRLtoG(),
+                                                   fastlio_odom_ptr_->GetLidarProcess()->GetTLtoG());
+        PublishCloud(body_cloud, m_node_config.body_frame, measure.lidar_end_time);
     }
+}
+
+void slam::LIONode::PublishTf(const std::string& parent_frame, const std::string& child_frame, double timestamped) {
+    geometry_msgs::TransformStamped transformStamped;
+    transformStamped.header.frame_id = parent_frame;
+    transformStamped.child_frame_id = child_frame;
+    transformStamped.header.stamp = ros::Time(timestamped);
+
+    Eigen::Quaterniond q(ieskf_->GetState().R_);
+    auto t = ieskf_->GetState().P_;
+    transformStamped.transform.rotation.w = q.w();
+    transformStamped.transform.rotation.x = q.x();
+    transformStamped.transform.rotation.y = q.y();
+    transformStamped.transform.rotation.z = q.z();
+    transformStamped.transform.translation.z = t.z();
+    transformStamped.transform.translation.x = t.x();
+    transformStamped.transform.translation.y = t.y();
+    tf_broadcaster_.sendTransform(transformStamped);
+}
+
+void slam::LIONode::PublishOdom(const std::string& parent_frame, const std::string& child_frame, double timestamped) {
+    nav_msgs::Odometry odom;
+    odom.header.frame_id = parent_frame;
+    odom.child_frame_id = child_frame;
+    odom.header.stamp = ros::Time(timestamped);
+
+    odom.pose.pose.position.x = ieskf_->GetState().P_.x();
+    odom.pose.pose.position.y = ieskf_->GetState().P_.y();
+    odom.pose.pose.position.z = ieskf_->GetState().P_.z();
+    Eigen::Quaterniond q(ieskf_->GetState().R_);
+    odom.pose.pose.orientation.x = q.x();
+    odom.pose.pose.orientation.y = q.y();
+    odom.pose.pose.orientation.z = q.z();
+    odom.pose.pose.orientation.w = q.w();
+
+    Vec3d vel = ieskf_->GetState().R_.transpose() * ieskf_->GetState().V_;
+    odom.twist.twist.linear.x = vel.x();
+    odom.twist.twist.linear.y = vel.y();
+    odom.twist.twist.linear.z = vel.z();
+    odom_pub_.publish(odom);
+}
+
+void slam::LIONode::PublishCloud(const PointCloudPtr& cloud, const std::string& frame, double timestamped) {
+    sensor_msgs::PointCloud2 ros_msg;
+    pcl::toROSMsg(*cloud, ros_msg);
+    ros_msg.header.frame_id = frame;
+    ros_msg.header.stamp = ros::Time(timestamped);
+    body_cloud_pub_.publish(ros_msg);
 }
 
 int main(int argc, char** argv) {

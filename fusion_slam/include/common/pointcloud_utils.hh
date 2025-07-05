@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-06-19 23:18:17
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-06-19 23:33:21
+ * @LastEditTime: 2025-07-05 15:14:45
  * @FilePath: /fusion_slam_ws/src/fusion_slam/include/common/pointcloud_utils.hh
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -15,6 +15,10 @@
 #include <cmath>
 #include <cstdint>
 #include <execution>
+#include <numeric>
+#include <vector>
+#include "common/eigen_type.hh"
+#include "common/lidar_point_type.hh"
 #include "pcl/point_cloud.h"
 #include "sensors/lidar.hh"
 
@@ -53,5 +57,32 @@ inline void SavePcd(const std::string& path, const PointCloudPtr& cloud) {
     pcl::io::savePCDFileASCII(path, *cloud);
 }
 
+template <typename T>
+inline Vec3d ToEigen(const T& point) {
+    Vec3d eigen_point;
+    eigen_point << point.x, point.y, point.z;
+    return eigen_point;
+}
+
+inline PointCloudPtr TransformCloud(const PointCloudPtr& in_cloud, const Mat3d& R, const Vec3d& t) {
+    PointCloudPtr out_cloud(new PointCloud);
+    out_cloud->resize(in_cloud->size());
+    std::vector<int> index(in_cloud->size(), 0);
+    std::iota(index.begin(), index.end(), 0);
+    std::for_each(std::execution::par, index.begin(), index.end(), [&](const int idx) {
+        auto point = in_cloud->points[idx];
+        auto eigen_point = ToEigen(point);
+        auto trans_eigen_point = R * eigen_point + t;
+        PointXYZIRT& trans_point = out_cloud->points[idx];
+        trans_point.x = trans_eigen_point.x();
+        trans_point.y = trans_eigen_point.y();
+        trans_point.z = trans_eigen_point.z();
+        trans_point.time = point.time;
+        trans_point.intensity = point.intensity;
+        trans_point.ring = point.ring;
+    });
+
+    return out_cloud;
+}
 
 }  // namespace slam

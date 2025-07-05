@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-02 23:27:47
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-05 00:42:50
+ * @LastEditTime: 2025-07-05 15:35:22
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/fastlio_ieskf.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -38,9 +38,9 @@ V21D NavState::operator-(const NavState& other) const {
 std::ostream& operator<<(std::ostream& os, const NavState& state) {
     os << "==============START===============" << std::endl;
     os << "r_wi: " << state.R_.eulerAngles(2, 1, 0).transpose() << std::endl;
-    os << "t_il: " << state.P_.transpose() << std::endl;
+    os << "t_wi: " << state.P_.transpose() << std::endl;
     os << "r_il: " << state.R_LtoI.eulerAngles(2, 1, 0).transpose() << std::endl;
-    os << "t_wi: " << state.t_LinI.transpose() << std::endl;
+    os << "t_il: " << state.t_LinI.transpose() << std::endl;
     os << "v: " << state.V_.transpose() << std::endl;
     os << "bg: " << state.bg_.transpose() << std::endl;
     os << "ba: " << state.ba_.transpose() << std::endl;

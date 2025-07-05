@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-05 00:15:43
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-05 01:38:41
+ * @LastEditTime: 2025-07-05 15:29:13
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/imu_process.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -49,6 +49,7 @@ bool IMUProcess::TrytoInit(const MeasureGroup& measure) {
 
 void IMUProcess::PredictAndUndistort(const MeasureGroup& measure, PointCloud::Ptr& undistort_cloud) {
     undistort_cloud = measure.curr_cloud;
+    LOG_INFO("cloud_size:{}", undistort_cloud->size());
     // save origin pcd
     // pcl::io::savePCDFile("/home/hang/origin.pcd", *undistort_cloud);
     std::vector<IMUData> imu_datas;
@@ -77,6 +78,7 @@ void IMUProcess::PredictAndUndistort(const MeasureGroup& measure, PointCloud::Pt
         // LOG_INFO("dt:{}", dt);
         ieskf_->Predict(acc_mean, gyro_mean, dt, Q_);
         state = ieskf_->GetState();
+        std::cout << "sate:" << state << std::endl;
         last_acc_ = state.R_ * (acc_mean - ieskf_->GetState().ba_) + state.g;
         last_gyro_ = gyro_mean - ieskf_->GetState().bg_;
         double offset = tail.timestamped_ - measure.lidar_begin_time;
@@ -93,6 +95,7 @@ void IMUProcess::PredictAndUndistort(const MeasureGroup& measure, PointCloud::Pt
     Vec3d cur_t_wi = ieskf_->GetState().P_;
     Mat3d cur_r_il = ieskf_->GetState().R_LtoI;
     Vec3d cur_t_il = ieskf_->GetState().t_LinI;
+
     auto undistort_start = std::chrono::high_resolution_clock::now();
     for (auto it_kp = imu_poses_.end() - 1; it_kp != imu_poses_.begin(); it_kp--) {
         auto head = it_kp - 1;
@@ -120,7 +123,7 @@ void IMUProcess::PredictAndUndistort(const MeasureGroup& measure, PointCloud::Pt
     }
     auto undistort_end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(undistort_end - undistort_start);
-    LOG_INFO("undistort used time:{}", duration.count() * 1e-6);
+    LOG_INFO("undistort used time:{}, after undistort cloud size:{}", duration.count() * 1e-6, undistort_cloud->size());
     // pcl::io::savePCDFile("/home/hang/undistort.pcd", *undistort_cloud);
 }
 
