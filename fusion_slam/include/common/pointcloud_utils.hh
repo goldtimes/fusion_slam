@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-06-19 23:18:17
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-06 17:23:04
+ * @LastEditTime: 2025-07-06 20:20:48
  * @FilePath: /fusion_slam_ws/src/fusion_slam/include/common/pointcloud_utils.hh
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -82,6 +82,38 @@ inline PointCloudPtr TransformCloud(const PointCloudPtr& in_cloud, const Mat3d& 
     });
 
     return out_cloud;
+}
+
+inline bool esti_plane(const std::vector<PointType, Eigen::aligned_allocator<PointType>>& points, const double thresh,
+                       Eigen::Vector4d& plane_coeff) {
+    Eigen::MatrixXd A(points.size(), 3);
+    Eigen::MatrixXd b(points.size(), 1);
+    A.setZero();
+    b.setOnes();
+    b *= -1;
+    for (int i = 0; i < points.size(); ++i) {
+        A(i, 0) = points[i].x;
+        A(i, 1) = points[i].y;
+        A(i, 2) = points[i].z;
+    }
+    Vec3d normvec = A.colPivHouseholderQr().solve(b);
+    double norm = normvec.norm();
+    plane_coeff[0] = normvec[0] / norm;
+    plane_coeff[1] = normvec[1] / norm;
+    plane_coeff[2] = normvec[2] / norm;
+    plane_coeff[3] = 1.0 / norm;
+    // 检验点到平面的距离
+    for (size_t j = 0; j < points.size(); j++) {
+        if (std::fabs(plane_coeff(0) * points[j].x + plane_coeff(1) * points[j].y + plane_coeff(2) * points[j].z +
+                      plane_coeff(3)) > thresh) {
+            return false;
+        }
+    }
+    return true;
+}
+
+inline float sq_dist(const PointType& p1, const PointType& p2) {
+    return (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y) + (p1.z - p2.z) * (p1.z - p2.z);
 }
 
 }  // namespace slam
