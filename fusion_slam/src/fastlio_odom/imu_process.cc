@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-05 00:15:43
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-06 17:24:10
+ * @LastEditTime: 2025-07-07 00:24:25
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/imu_process.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -78,7 +78,7 @@ void IMUProcess::PredictAndUndistort(const MeasureGroup& measure, PointCloud::Pt
         // LOG_INFO("dt:{}", dt);
         ieskf_->Predict(acc_mean, gyro_mean, dt, Q_);
         state = ieskf_->GetState();
-        std::cout << "sate:" << state << std::endl;
+        // std::cout << "sate:" << state << std::endl;
         last_acc_ = state.R_ * (acc_mean - ieskf_->GetState().ba_) + state.g;
         last_gyro_ = gyro_mean - ieskf_->GetState().bg_;
         double offset = tail.timestamped_ - measure.lidar_begin_time;

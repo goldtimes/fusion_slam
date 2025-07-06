@@ -72,7 +72,7 @@ class LIONode {
         const double min_dist = m_node_config.lidar_min_range * m_node_config.lidar_min_range;
         const double max_dist = m_node_config.lidar_max_range * m_node_config.lidar_max_range;
         int point_num = livox_msg->point_num;
-        cloud->reserve(point_num / m_node_config.lidar_filter_num);
+        cloud->reserve(point_num / m_node_config.lidar_filter_num + 1);
         for (int i = 0; i < point_num; i += m_node_config.lidar_filter_num) {
             if ((livox_msg->points[i].line < 4) &&
                 ((livox_msg->points[i].tag & 0x30) == 0x10 || (livox_msg->points[i].tag & 0x30) == 0x00)) {

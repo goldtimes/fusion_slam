@@ -2,12 +2,13 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-01 23:57:39
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-06 20:41:27
+ * @LastEditTime: 2025-07-07 00:31:58
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/lidar_process.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AEa
  */
 #include "fastlio_odom/lidar_process.hh"
+#include <Eigen/src/Core/util/Memory.h>
 #include <cmath>
 #include <memory>
 #include <vector>
@@ -30,7 +31,11 @@ FastLidarProcess::FastLidarProcess(const LIONodeConfig& config, std::shared_ptr<
     }
     filter_cloud_lidar.reset(new PointCloud);
     filter_cloud_world.reset(new PointCloud(10000, 1));
-    nearest_points.resize(10000);
+    nearest_points.resize(20000);
+    m_norm_vec.reset(new PointCloud(10000, 1));
+    m_effect_cloud_lidar.reset(new PointCloud(1000, 1));
+    m_effect_norm_vec.reset(new PointCloud(10000, 1));
+
     // 本质上是ieskf_在update函数中调用了
     // loss_func,传入当前的状态量和一些需要传递回去的变量，然后调用lidar_process的配准函数来就算H,b矩阵
     ieskf_->SetLossFunc([&](NavState& state, SharedState& shared_state) { UpdateLossFunc(state, shared_state); });
@@ -54,6 +59,7 @@ void FastLidarProcess::TrimLocalMap() {
             local_map.local_map_corner.vertex_min[i] = pos_LinG[i] - config_.cube_len / 2.0;
             local_map.local_map_corner.vertex_max[i] = pos_LinG[i] + config_.cube_len / 2.0;
         }
+        LOG_INFO("LocalMap INIT");
         local_map.initialed = true;
         return;
     }
@@ -112,6 +118,7 @@ void FastLidarProcess::IncreLocalMap() {
     if (filter_cloud_lidar->empty()) {
         return;
     }
+
     // 当前状态
     const NavState& state = ieskf_->GetState();
     int cloud_size = filter_cloud_lidar->size();
@@ -178,10 +185,12 @@ void FastLidarProcess::BuildLocalMap(const PointCloudPtr& cloud_world) {
 // 点面残差的构建
 void FastLidarProcess::UpdateLossFunc(NavState& state, SharedState& shared_state) {
     int size_num = filter_cloud_lidar->size();
-#ifdef MP_EN
-    omp_set_num_threads(MP_PROC_NUM);
-#pragma omp parallel for
-#endif
+    LOG_INFO("input cloud size:{}", size_num);
+    filter_cloud_world->resize(size_num);
+    // #ifdef MP_EN
+    //     omp_set_num_threads(MP_PROC_NUM);
+    // #pragma omp parallel for
+    // #endif
     for (int i = 0; i < size_num; ++i) {
         const PointType& point_body = filter_cloud_lidar->points[i];
         PointType& point_world = filter_cloud_world->points[i];
@@ -196,7 +205,8 @@ void FastLidarProcess::UpdateLossFunc(NavState& state, SharedState& shared_state
         // 最近5个点的距离
         std::vector<float> dist2(config_.near_search_num);
         // 最近的5个点
-        auto& points_nears = nearest_points[i];
+        std::vector<PointType, Eigen::aligned_allocator<PointType>>& points_nears = nearest_points[i];
+        LOG_INFO("i:{}", i);
         ikdtree_ptr_->Nearest_Search(point_world, config_.near_search_num, points_nears, dist2);
         if (points_nears.size() > static_cast<size_t>(config_.near_search_num) &&
             dist2[config_.near_search_num - 1] <= 5) {
@@ -239,6 +249,7 @@ void FastLidarProcess::UpdateLossFunc(NavState& state, SharedState& shared_state
         LOG_INFO("Find Num Effect size < 1");
         return;
     }
+    LOG_INFO("Find Effect size:{}", num_effect_size);
     shared_state.valid = true;
     shared_state.H.setZero();
     shared_state.b.setZero();
@@ -275,8 +286,8 @@ void FastLidarProcess::Align(const PointCloudPtr& in_cloud) {
         voxel_filter_.filter(*filter_cloud_lidar);
     } else {
         filter_cloud_lidar = in_cloud;
-        // in_cloud.reset(new PointCloud());
     }
+    LOG_INFO("after filter size:{}", filter_cloud_lidar->size());
     TrimLocalMap();
     // align
     ieskf_->Update();
