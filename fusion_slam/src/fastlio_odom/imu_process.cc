@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-05 00:15:43
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-05 15:29:13
+ * @LastEditTime: 2025-07-06 17:24:10
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/imu_process.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -107,8 +107,8 @@ void IMUProcess::PredictAndUndistort(const MeasureGroup& measure, PointCloud::Pt
         Vec3d imu_acc = tail->acc;
         Vec3d imu_gyro = tail->gyro;
 
-        for (; it_pcl->time / double(1000) > head->offset_time; it_pcl--) {
-            dt = it_pcl->time / double(1000) - head->offset_time;
+        for (; it_pcl->curvature / double(1000) > head->offset_time; it_pcl--) {
+            dt = it_pcl->curvature / double(1000) - head->offset_time;
             Vec3d point(it_pcl->x, it_pcl->y, it_pcl->z);
             Mat3d point_rot = imu_r_wi * Sophus::SO3d::exp(imu_gyro * dt).matrix();
             Vec3d point_pos = imu_t_wi + imu_vel * dt + 0.5 * imu_acc * dt * dt;

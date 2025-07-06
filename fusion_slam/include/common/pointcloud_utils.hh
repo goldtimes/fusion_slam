@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-06-19 23:18:17
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-05 15:14:45
+ * @LastEditTime: 2025-07-06 17:23:04
  * @FilePath: /fusion_slam_ws/src/fusion_slam/include/common/pointcloud_utils.hh
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -73,13 +73,12 @@ inline PointCloudPtr TransformCloud(const PointCloudPtr& in_cloud, const Mat3d& 
         auto point = in_cloud->points[idx];
         auto eigen_point = ToEigen(point);
         auto trans_eigen_point = R * eigen_point + t;
-        PointXYZIRT& trans_point = out_cloud->points[idx];
+        PointType& trans_point = out_cloud->points[idx];
         trans_point.x = trans_eigen_point.x();
         trans_point.y = trans_eigen_point.y();
         trans_point.z = trans_eigen_point.z();
-        trans_point.time = point.time;
+        trans_point.curvature = point.curvature;
         trans_point.intensity = point.intensity;
-        trans_point.ring = point.ring;
     });
 
     return out_cloud;

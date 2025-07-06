@@ -79,12 +79,12 @@ class LIONode {
                 float x = livox_msg->points[i].x;
                 float y = livox_msg->points[i].y;
                 float z = livox_msg->points[i].z;
-                PointXYZIRT p;
+                PointType p;
                 p.x = x;
                 p.y = y;
                 p.z = z;
                 p.intensity = livox_msg->points[i].reflectivity;
-                p.time = livox_msg->points[i].offset_time / 1000000.0f;
+                p.curvature = livox_msg->points[i].offset_time / 1000000.0f;
                 cloud->push_back(p);
             }
         }
@@ -238,16 +238,17 @@ bool slam::LIONode::sync_package(MeasureGroup& measure) {
         if (measure.curr_cloud->points.size() <= 1) {
             measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;
             LOG_INFO("curr_cloud points size < 1");
-        } else if (measure.curr_cloud->points.back().time < 0.5 * lidar_mean_scantime_) {
+        } else if (measure.curr_cloud->points.back().curvature < 0.5 * lidar_mean_scantime_) {
             measure.lidar_end_time = measure.lidar_begin_time + lidar_mean_scantime_;
         } else {
             scan_num_++;
-            measure.lidar_end_time = measure.lidar_begin_time + measure.curr_cloud->points.back().time / 1000.0;
+            measure.lidar_end_time = measure.lidar_begin_time + measure.curr_cloud->points.back().curvature / 1000.0;
             // LOG_INFO("lidar_begin_time:{},lidar_end_time:{}", measure.lidar_begin_time, measure.lidar_end_time);
             // LOG_INFO("back time:{}", measure.curr_cloud->points.back().time);
             // LOG_INFO("begin sync, lidar_begin_time:{}, lidar_end_time:{}, imu_queue_size:{}",
             //          measure.lidar_begin_time , measure.lidar_end_time , imu_queue_.size());
-            lidar_mean_scantime_ += (measure.curr_cloud->points.back().time / 100.0 - lidar_mean_scantime_) / scan_num_;
+            lidar_mean_scantime_ +=
+                (measure.curr_cloud->points.back().curvature / 100.0 - lidar_mean_scantime_) / scan_num_;
             LOG_INFO("lidar_mean_scantime:{}", lidar_mean_scantime_);
         }
         lidar_pushed_ = true;
