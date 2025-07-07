@@ -27,44 +27,41 @@ struct LocalMap {
 
 class FastLidarProcess {
    public:
-    FastLidarProcess(const LIONodeConfig& config, std::shared_ptr<FastlioIESKF> ieskf);
+    FastLidarProcess(const LIONodeConfig &config, std::shared_ptr<FastlioIESKF> kf);
 
-    void BuildLocalMap(const PointCloudPtr& cloud_world);
-    void Align(const PointCloudPtr& in_cloud);
+    void trimCloudMap();
 
-    void TrimLocalMap();
-    void IncreLocalMap();
-    void UpdateLossFunc(NavState& state, SharedState& shared_state);
+    void incrCloudMap();
+
+    void initCloudMap(PointVec &point_vec);
+
+    void process(MeasureGroup &package);
+
+    void updateLossFunc(NavState &state, SharedState &share_data);
     Mat3d GetRLtoG() {
-        auto state = ieskf_->GetState();
+        auto state = m_kf->GetState();
         // r_ItoG * r_LtoI
-        return state.R_ * config_.r_il;
+        return state.R_ * m_config.r_il;
     }
 
     Vec3d GetTLtoG() {
-        auto state = ieskf_->GetState();
-        return state.R_ * config_.t_il + state.P_;
+        auto state = m_kf->GetState();
+        return state.R_ * m_config.t_il + state.P_;
     }
 
    private:
-    LIONodeConfig config_;
-    std::shared_ptr<FastlioIESKF> ieskf_;
-    // ikdtree
-    std::shared_ptr<KD_TREE<PointType>> ikdtree_ptr_;
-    // local_map
-    LocalMap local_map;
-    // 滤波
-    pcl::VoxelGrid<PointType> voxel_filter_;
-    PointCloudPtr filter_cloud_lidar;
-    PointCloudPtr filter_cloud_world;
-    // 点面残差的法向量
+    LIONodeConfig m_config;
+    LocalMap m_local_map;
+    std::shared_ptr<FastlioIESKF> m_kf;
+    std::shared_ptr<KD_TREE<PointType>> m_ikdtree;
+    PointCloudPtr m_cloud_lidar;
+    PointCloudPtr m_cloud_down_lidar;
+    PointCloudPtr m_cloud_down_world;
+    std::vector<bool> m_point_selected_flag;
     PointCloudPtr m_norm_vec;
-    // 配准的点
     PointCloudPtr m_effect_cloud_lidar;
-    // 有效的点面残差
     PointCloudPtr m_effect_norm_vec;
-    // 点面残差有效的点
-    std::vector<bool> point_selected_flag;
-    std::vector<std::vector<PointType, Eigen::aligned_allocator<PointType>>> nearest_points;
+    std::vector<PointVec> m_nearest_points;
+    pcl::VoxelGrid<PointType> m_scan_filter;
 };
 }  // namespace slam::fastlio

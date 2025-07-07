@@ -16,4 +16,5 @@ namespace slam {
 using PointType = pcl::PointXYZINormal;
 using PointCloud = pcl::PointCloud<PointType>;
 using PointCloudPtr = pcl::PointCloud<PointType>::Ptr;
+using PointVec = std::vector<PointType, Eigen::aligned_allocator<PointType>>;
 }  // namespace slam

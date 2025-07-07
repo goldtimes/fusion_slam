@@ -41,13 +41,13 @@ void FastLioOdom::ProcessSyncpackage(MeasureGroup& measure) {
         // 第一帧,转到世界坐标系下
         LOG_INFO("MAP_INIT");
         auto cloud_world = TransformCloud(undistort, lidar_process_ptr_->GetRLtoG(), lidar_process_ptr_->GetTLtoG());
-        lidar_process_ptr_->BuildLocalMap(cloud_world);
+        lidar_process_ptr_->initCloudMap(cloud_world->points);
         odom_state = ODOM_STATE::MAPPING;
         return;
     }
     // 配准
     measure.curr_cloud = undistort;
     LOG_INFO("MAPPING");
-    lidar_process_ptr_->Align(undistort);
+    lidar_process_ptr_->process(measure);
 }
 }  // namespace slam::fastlio
