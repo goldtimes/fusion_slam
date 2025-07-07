@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-06-26 22:45:51
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-05 22:28:07
+ * @LastEditTime: 2025-07-07 23:12:04
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/static_imu_init.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -73,9 +73,10 @@ bool StateicImuInit::TryInit() {
     // LOG_INFO("Align Gravity");
     // Mat3d r_gtoi;
     // Eigen::Vector3d z_axis = mean_acce / mean_acce.norm();
-    // grad_schmit(z_axis, r_gtoi);
+    // R_GtoI = Eigen::Quaterniond::FromTwoVectors((-mean_acce).normalized(), Vec3d(0.0, 0.0, -1.0)).matrix().inverse();
+    // grad_schmit(z_axis, R_GtoI);
     // LOG_INFO("R_GtoI:{}", r_gtoi);
-    // std::cout << "R_GtoI:\n" << r_gtoi.eulerAngles(2, 1, 0).transpose() << std::endl;
+    // std::cout << "R_GtoI:\n" << R_GtoI.eulerAngles(2, 1, 0).transpose() << std::endl;
     init_success_ = true;
     return true;
 }
