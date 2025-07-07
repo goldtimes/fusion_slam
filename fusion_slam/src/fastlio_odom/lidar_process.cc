@@ -36,7 +36,7 @@ FastLidarProcess::FastLidarProcess(const LIONodeConfig& config, std::shared_ptr<
     m_norm_vec.reset(new PointCloud(10000, 1));
     m_effect_cloud_lidar.reset(new PointCloud(1000, 1));
     m_effect_norm_vec.reset(new PointCloud(10000, 1));
-
+    point_selected_flag.resize(10000);
     // 本质上是ieskf_在update函数中调用了
     // loss_func,传入当前的状态量和一些需要传递回去的变量，然后调用lidar_process的配准函数来就算H,b矩阵
     ieskf_->SetLossFunc([&](NavState& state, SharedState& shared_state) { UpdateLossFunc(state, shared_state); });
@@ -194,7 +194,7 @@ void FastLidarProcess::UpdateLossFunc(NavState& state, SharedState& shared_state
     omp_set_num_threads(2);
 #pragma omp parallel for
 #endif
-    for (size_t i = 0; i < size_num; ++i) {
+    for (int i = 0; i < size_num; ++i) {
         const PointType& point_body = filter_cloud_lidar->points[i];
         PointType& point_world = filter_cloud_world->points[i];
         const auto point_body_vec = Vec3d(point_body.x, point_body.y, point_body.z);
@@ -223,7 +223,7 @@ void FastLidarProcess::UpdateLossFunc(NavState& state, SharedState& shared_state
             continue;
         }
         LOG_INFO("esti_plane");
-        // 估计平面
+        // // 估计平面
         Eigen::Vector4d plane_coeff;
         point_selected_flag[i] = false;
         if (esti_plane(points_nears, 0.1, plane_coeff)) {
@@ -299,6 +299,6 @@ void FastLidarProcess::Align(const PointCloudPtr& in_cloud) {
     TrimLocalMap();
     // align
     ieskf_->Update();
-    IncreLocalMap();
+    // IncreLocalMap();
 }
 }  // namespace slam::fastlio

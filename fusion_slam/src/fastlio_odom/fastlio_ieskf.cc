@@ -74,13 +74,13 @@ void FastlioIESKF::Predict(const Vec3d& acc, const Vec3d& gyro, double dt, const
     delta_x.segment<3>(12) = (state_.R_ * (acc - state_.ba_) + state_.g) * dt;
     F_.setIdentity();
     F_.block<3, 3>(0, 0) = Sophus::SO3d::exp(-(gyro - state_.bg_) * dt).matrix();
-    F_.block<3, 3>(0, 15) = -Sophus::SO3d::jr((gyro - state_.bg_) * dt) * dt;
+    F_.block<3, 3>(0, 15) = -Jr((gyro - state_.bg_) * dt) * dt;
     F_.block<3, 3>(3, 12) = Eigen::Matrix3d::Identity() * dt;
     F_.block<3, 3>(12, 0) = -state_.R_ * Sophus::SO3d::hat(acc - state_.ba_) * dt;
     F_.block<3, 3>(12, 18) = -state_.R_ * dt;
 
     G_.setZero();
-    G_.block<3, 3>(0, 0) = -Sophus::SO3d::jr((gyro - state_.bg_) * dt) * dt;
+    G_.block<3, 3>(0, 0) = -Jr((gyro - state_.bg_) * dt).transpose() * dt;
     G_.block<3, 3>(12, 3) = -state_.R_ * dt;
     G_.block<3, 3>(15, 6) = Eigen::Matrix3d::Identity() * dt;
     G_.block<3, 3>(18, 9) = Eigen::Matrix3d::Identity() * dt;
@@ -104,8 +104,8 @@ void FastlioIESKF::Update() {
         b.setZero();
         delta = state_ - predict_x;
         M21D J = M21D::Identity();
-        J.block<3, 3>(0, 0) = Sophus::SO3d::jr_inv(delta.segment<3>(0));
-        J.block<3, 3>(6, 6) = Sophus::SO3d::jr_inv(delta.segment<3>(6));
+        J.block<3, 3>(0, 0) = -JrInv(delta.segment<3>(0));
+        J.block<3, 3>(6, 6) = -JrInv(delta.segment<3>(6));
         H += J.transpose() * cov_.inverse() * J;
         b += J.transpose() * cov_.inverse() * delta;
 
@@ -126,5 +126,12 @@ void FastlioIESKF::Update() {
     L.block<3, 3>(0, 0) = Sophus::SO3d::jr(delta.segment<3>(0));
     L.block<3, 3>(6, 6) = Sophus::SO3d::jr(delta.segment<3>(6));
     cov_ = L * H.inverse() * L.transpose();
+}
+
+Mat3d FastlioIESKF::Jr(const Vec3d& inp) {
+    return Sophus::SO3d::jl(inp).transpose();
+}
+Mat3d FastlioIESKF::JrInv(const Vec3d& inp) {
+    return Sophus::SO3d::jl_inv(inp).transpose();
 }
 }  // namespace slam::fastlio

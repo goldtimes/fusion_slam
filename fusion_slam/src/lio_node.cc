@@ -20,6 +20,9 @@
 #include "fastlio_odom/fastlio_odom.hh"
 #include "livox_ros_driver2/CustomMsg.h"
 #include "pcl_conversions/pcl_conversions.h"
+#include "ros/duration.h"
+#include "ros/forwards.h"
+#include "ros/init.h"
 #include "ros/time.h"
 #include "sensors/imu.hh"
 #include "sensors/lidar.hh"
@@ -32,7 +35,7 @@ class LIONode {
     LIONode(const ros::NodeHandle nh);
     ~LIONode() = default;
 
-    void run();
+    void run(const ros::TimerEvent& event);
 
    private:
     void loadParames();
@@ -115,6 +118,8 @@ class LIONode {
     std::deque<PointCloud::Ptr> lidar_queue_;
     std::deque<double> lidar_time_queue_;
 
+    ros::Timer timer;
+
     double last_imu_time = -1;
     double last_lidar_time = -1;
 
@@ -139,10 +144,9 @@ slam::LIONode::LIONode(const ros::NodeHandle nh) : nh_(nh) {
     world_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("world_cloud", 10);
     path_pub_ = nh_.advertise<nav_msgs::Path>("lio_path", 10);
     odom_pub_ = nh_.advertise<nav_msgs::Odometry>("lio_odom", 10);
-    sync_thread_ = std::thread(&LIONode::run, this);
     ieskf_ = std::make_shared<fastlio::FastlioIESKF>();
     fastlio_odom_ptr_ = std::make_shared<fastlio::FastLioOdom>(m_node_config, ieskf_);
-
+    timer = nh_.createTimer(ros::Duration(0.02), &LIONode::run, this);
     odom_path.header.frame_id = m_node_config.world_frame;
     odom_path.poses.clear();
 }
@@ -290,35 +294,28 @@ bool slam::LIONode::sync_package(MeasureGroup& measure) {
     return true;
 }
 
-void slam::LIONode::run() {
-    // 这里频率过快会有问题
-    ros::Rate rate(50);
-    while (ros::ok()) {
-        rate.sleep();
-        MeasureGroup measure;
-        ros::spinOnce();
-        if (!sync_package(measure)) {
-            continue;
-        }
-        LOG_INFO("sync_package success");
-        auto odom_start_time = std::chrono::high_resolution_clock::now();
-        fastlio_odom_ptr_->ProcessSyncpackage(measure);
-        auto odom_end_time = std::chrono::high_resolution_clock::now();
-        auto odom_time_used = std::chrono::duration_cast<std::chrono::microseconds>(odom_end_time - odom_start_time);
-        LOG_INFO("lio_odom used time:{}", odom_time_used.count() * 1e-6);
-        if (fastlio_odom_ptr_->GetState() != fastlio::ODOM_STATE::MAPPING) {
-            continue;
-        }
-        PublishTf(m_node_config.world_frame, m_node_config.body_frame, measure.lidar_end_time);
-        PublishOdom(m_node_config.world_frame, m_node_config.body_frame, measure.lidar_end_time);
-        PointCloudPtr body_cloud =
-            TransformCloud(measure.curr_cloud, ieskf_->GetState().R_LtoI, ieskf_->GetState().t_LinI);
-        PublishCloud(body_cloud, m_node_config.body_frame, measure.lidar_end_time);
-        PointCloudPtr world_cloud = TransformCloud(measure.curr_cloud, fastlio_odom_ptr_->GetLidarProcess()->GetRLtoG(),
-                                                   fastlio_odom_ptr_->GetLidarProcess()->GetTLtoG());
-        PublishCloud(body_cloud, m_node_config.body_frame, measure.lidar_end_time);
-        PublishPath(m_node_config.world_frame, measure.lidar_end_time);
+void slam::LIONode::run(const ros::TimerEvent& event) {
+    MeasureGroup measure;
+    if (!sync_package(measure)) {
+        return;
     }
+    LOG_INFO("sync_package success");
+    auto odom_start_time = std::chrono::high_resolution_clock::now();
+    fastlio_odom_ptr_->ProcessSyncpackage(measure);
+    auto odom_end_time = std::chrono::high_resolution_clock::now();
+    auto odom_time_used = std::chrono::duration_cast<std::chrono::microseconds>(odom_end_time - odom_start_time);
+    LOG_INFO("lio_odom used time:{}", odom_time_used.count() * 1e-6);
+    if (fastlio_odom_ptr_->GetState() != fastlio::ODOM_STATE::MAPPING) {
+        return;
+    }
+    PublishTf(m_node_config.world_frame, m_node_config.body_frame, measure.lidar_end_time);
+    PublishOdom(m_node_config.world_frame, m_node_config.body_frame, measure.lidar_end_time);
+    PointCloudPtr body_cloud = TransformCloud(measure.curr_cloud, ieskf_->GetState().R_LtoI, ieskf_->GetState().t_LinI);
+    PublishCloud(body_cloud, m_node_config.body_frame, measure.lidar_end_time);
+    PointCloudPtr world_cloud = TransformCloud(measure.curr_cloud, fastlio_odom_ptr_->GetLidarProcess()->GetRLtoG(),
+                                               fastlio_odom_ptr_->GetLidarProcess()->GetTLtoG());
+    PublishCloud(body_cloud, m_node_config.body_frame, measure.lidar_end_time);
+    PublishPath(m_node_config.world_frame, measure.lidar_end_time);
 }
 
 void slam::LIONode::PublishTf(const std::string& parent_frame, const std::string& child_frame, double timestamped) {
@@ -389,8 +386,7 @@ int main(int argc, char** argv) {
     ros::init(argc, argv, "lio_node");
     ros::NodeHandle nh("~");
     std::shared_ptr<slam::LIONode> lio_node_ptr = std::make_shared<slam::LIONode>(nh);
-
-    lio_node_ptr->run();
+    ros::spin();
     // join线程
     LOG_INFO("LioNode Exits");
     return 0;

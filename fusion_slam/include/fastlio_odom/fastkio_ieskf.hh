@@ -68,6 +68,9 @@ class FastlioIESKF {
     void Predict(const Vec3d& acc_mean, const Vec3d& gyro_mean, double dt, const M12D& Q);
     void Update();
 
+    Mat3d Jr(const Vec3d& inp);
+    Mat3d JrInv(const Vec3d& inp);
+
     NavState& GetState() {
         return state_;
     }
