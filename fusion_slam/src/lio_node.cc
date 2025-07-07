@@ -253,12 +253,15 @@ bool slam::LIONode::sync_package(MeasureGroup& measure) {
         }
         lidar_pushed_ = true;
     }
+    if (last_imu_time < measure.lidar_end_time) {
+        return false;
+    }
     // 开始同步imu消息
     double imu_time = imu_queue_.front().timestamped_;
     LOG_INFO("imu_time:{}", imu_time);
     measure.imus.clear();
     // 找到第一帧雷达之前的imu
-    while (!imu_queue_.empty() && imu_time < measure.lidar_end_time) {
+    while ((!imu_queue_.empty()) && (imu_time < measure.lidar_end_time)) {
         imu_time = imu_queue_.front().timestamped_;
         if (imu_time > measure.lidar_end_time) {
             break;
@@ -273,12 +276,12 @@ bool slam::LIONode::sync_package(MeasureGroup& measure) {
         LOG_INFO("imu_begin_time:{}, imu_end_time:{}", measure.imus.begin()->timestamped_,
                  measure.imus.back().timestamped_);
     }
-    if (measure.imus.empty()) {
-        lidar_queue_.pop_front();
-        lidar_time_queue_.pop_front();
-        lidar_pushed_ = false;
-        return false;
-    }
+    // if (measure.imus.empty()) {
+    //     lidar_queue_.pop_front();
+    //     lidar_time_queue_.pop_front();
+    //     lidar_pushed_ = false;
+    //     return false;
+    // }
 
     // 处理gnss
     lidar_queue_.pop_front();
@@ -303,6 +306,9 @@ void slam::LIONode::run() {
         auto odom_end_time = std::chrono::high_resolution_clock::now();
         auto odom_time_used = std::chrono::duration_cast<std::chrono::microseconds>(odom_end_time - odom_start_time);
         LOG_INFO("lio_odom used time:{}", odom_time_used.count() * 1e-6);
+        if (fastlio_odom_ptr_->GetState() != fastlio::ODOM_STATE::MAPPING) {
+            continue;
+        }
         PublishTf(m_node_config.world_frame, m_node_config.body_frame, measure.lidar_end_time);
         PublishOdom(m_node_config.world_frame, m_node_config.body_frame, measure.lidar_end_time);
         PointCloudPtr body_cloud =

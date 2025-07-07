@@ -10,6 +10,7 @@
 #include "fastlio_odom/lidar_process.hh"
 #include <Eigen/src/Core/util/Memory.h>
 #include <cmath>
+#include <cstddef>
 #include <memory>
 #include <vector>
 #include "common/eigen_type.hh"
@@ -76,6 +77,7 @@ void FastLidarProcess::TrimLocalMap() {
         }
     }
     if (!need_move) {
+        LOG_INFO("Don't need move");
         return;
     }
     // 移动local_map
@@ -115,6 +117,7 @@ void FastLidarProcess::TrimLocalMap() {
 // 增加局部地图
 void FastLidarProcess::IncreLocalMap() {
     // 点云为空
+    LOG_INFO("IncreLocalMap");
     if (filter_cloud_lidar->empty()) {
         return;
     }
@@ -184,14 +187,14 @@ void FastLidarProcess::BuildLocalMap(const PointCloudPtr& cloud_world) {
 
 // 点面残差的构建
 void FastLidarProcess::UpdateLossFunc(NavState& state, SharedState& shared_state) {
-    int size_num = filter_cloud_lidar->size();
-    LOG_INFO("input cloud size:{}", size_num);
+    size_t size_num = filter_cloud_lidar->size();
+    LOG_INFO("input cloud size:{}, nearest_points:{}", size_num, nearest_points.size());
     filter_cloud_world->resize(size_num);
-    // #ifdef MP_EN
-    //     omp_set_num_threads(MP_PROC_NUM);
-    // #pragma omp parallel for
-    // #endif
-    for (int i = 0; i < size_num; ++i) {
+#ifdef MP_EN
+    omp_set_num_threads(2);
+#pragma omp parallel for
+#endif
+    for (size_t i = 0; i < size_num; ++i) {
         const PointType& point_body = filter_cloud_lidar->points[i];
         PointType& point_world = filter_cloud_world->points[i];
         const auto point_body_vec = Vec3d(point_body.x, point_body.y, point_body.z);
@@ -206,10 +209,12 @@ void FastLidarProcess::UpdateLossFunc(NavState& state, SharedState& shared_state
         std::vector<float> dist2(config_.near_search_num);
         // 最近的5个点
         std::vector<PointType, Eigen::aligned_allocator<PointType>>& points_nears = nearest_points[i];
+        LOG_INFO("points_nears:{}", points_nears.size());
         LOG_INFO("i:{}", i);
         ikdtree_ptr_->Nearest_Search(point_world, config_.near_search_num, points_nears, dist2);
-        if (points_nears.size() > static_cast<size_t>(config_.near_search_num) &&
-            dist2[config_.near_search_num - 1] <= 5) {
+        LOG_INFO("Nearest_Search:{}", points_nears.size());
+
+        if (points_nears.size() >= static_cast<size_t>(config_.near_search_num)) {
             point_selected_flag[i] = true;
         } else {
             point_selected_flag[i] = false;
@@ -217,13 +222,15 @@ void FastLidarProcess::UpdateLossFunc(NavState& state, SharedState& shared_state
         if (!point_selected_flag[i]) {
             continue;
         }
+        LOG_INFO("esti_plane");
         // 估计平面
         Eigen::Vector4d plane_coeff;
         point_selected_flag[i] = false;
         if (esti_plane(points_nears, 0.1, plane_coeff)) {
             double point_to_plane_dist2 = plane_coeff(0) * point_world_vec(0) + plane_coeff(1) * point_world_vec(1) +
                                           plane_coeff(2) * point_world_vec(2) + plane_coeff(3);
-            //远处的点需要更严格的平面距离约束 分母为点的距离，点的距离越远，只有当point_to_plane_dist2越小时，才能满足s
+            //远处的点需要更严格的平面距离约束
+            // 分母为点的距离，点的距离越远，只有当point_to_plane_dist2越小时，才能满足s
             //> 0.9的约束
             double s = 1 - 0.9 * std::fabs(point_to_plane_dist2) / std::sqrt(point_body_vec.norm());
             if (s > 0.9) {
@@ -278,6 +285,7 @@ void FastLidarProcess::UpdateLossFunc(NavState& state, SharedState& shared_state
         // 这里是不是有问题
         shared_state.b += J.transpose() * config_.lidar_cov_inv * norm_point.intensity;
     }
+    LOG_INFO("UpdateLossFunc end");
 }
 
 void FastLidarProcess::Align(const PointCloudPtr& in_cloud) {
