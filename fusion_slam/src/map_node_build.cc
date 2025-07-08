@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-08 23:14:53
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-08 23:54:13
+ * @LastEditTime: 2025-07-09 00:46:12
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/map_node_build.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -113,10 +113,67 @@ void MapBuildNode::init_sub_pub() {
                      : nh_.subscribe(config_.lidar_topic_, 10, &MapBuildNode::standard_pcl_callback, this);
 }
 
+bool MapBuildNode::SyncPackage(MeasureGroup& sync_package) {
+    if (imu_queque_.empty() || lidar_queque_.empty() && lidar_time_queue_.empty()) {
+        return false;
+    }
+    if (!lidar_pushed) {
+        sync_package.current_lidar = lidar_queque_.front();
+        sync_package.lidar_begin_time = lidar_time_queue_.front();
+        // 点云有问题
+        if (sync_package.current_lidar->points.size() <= 1) {
+            sync_package.lidar_end_time = sync_package.lidar_end_time + lidar_mean_scantime;
+            LOG_ERROR("Too few input point cloud!");
+        }
+        // 最尾部的时间 < 一半的scan_time
+        // sync_package.current_lidar->points.back().curvature / double(1000) 这里是相对于第一个点的偏移时间
+        else if (sync_package.current_lidar->points.back().curvature / double(1000) < 0.5 * lidar_mean_scantime) {
+            sync_package.lidar_end_time = sync_package.lidar_begin_time + lidar_mean_scantime;
+        } else {
+            scan_num++;
+            sync_package.lidar_end_time =
+                sync_package.lidar_begin_time + sync_package.current_lidar->points.back().curvature / double(1000);
+            lidar_mean_scantime +=
+                (sync_package.current_lidar->points.back().curvature / double(1000) - lidar_mean_scantime) / scan_num;
+        }
+        lidar_pushed = true;
+    }
+    LOG_INFO("lidar_begin_time:{},lidar_end_time:{}, lidar_mean_scantime:{}", sync_package.lidar_begin_time,
+             sync_package.lidar_end_time, lidar_mean_scantime);
+    // 处理imu
+    if (last_imu_time < sync_package.lidar_end_time) {
+        return false;
+    }
+    double imu_time = imu_queque_.front().timestamped_;
+    sync_package.imu_queue_.clear();
+    while (!imu_queque_.empty() && (imu_time < sync_package.lidar_end_time)) {
+        imu_time = imu_queque_.front().timestamped_;
+        if (imu_time > sync_package.lidar_end_time) {
+            break;
+        }
+        sync_package.imu_queue_.push_back(imu_queque_.front());
+        imu_queque_.pop_front();
+    }
+    LOG_INFO("find imu size:{}", sync_package.imu_queue_.size());
+    if (!sync_package.imu_queue_.empty()) {
+        LOG_INFO("find imu begin time:{}, end_time:{}", sync_package.imu_queue_.front().timestamped_,
+                 sync_package.imu_queue_.back().timestamped_);
+    }
+    lidar_time_queue_.pop_front();
+    lidar_queque_.pop_front();
+    lidar_pushed = false;
+    return true;
+}
+
 void MapBuildNode::Run() {
     while (ros::ok()) {
         local_rate_->sleep();
         ros::spinOnce();
+        MeasureGroup sync_package;
+        if (!SyncPackage(sync_package)) {
+            continue;
+        }
+        LOG_INFO("SyncPackage Success");
     }
 }
 }  // namespace slam

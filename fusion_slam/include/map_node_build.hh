@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-08 23:14:53
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-08 23:31:21
+ * @LastEditTime: 2025-07-09 00:30:54
  * @FilePath: /fusion_slam_ws/src/fusion_slam/include/map_node_build.hh
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -50,6 +50,8 @@ class MapBuildNode {
     void load_params();
     void init_sub_pub();
 
+    bool SyncPackage(MeasureGroup& sync_package);
+
    private:
     ros::NodeHandle nh_;
     MapBuildNodeConfig config_;
@@ -74,6 +76,11 @@ class MapBuildNode {
     std::shared_ptr<LidarProcess> lidar_process_ptr_;
     std::shared_ptr<ros::Rate> local_rate_;
     std::shared_ptr<ros::Rate> loop_rate_;
+
+    MeasureGroup sync_package;
+    bool lidar_pushed = false;
+    double lidar_mean_scantime = 0.0;
+    int scan_num = 0;
 
     std::mutex mtx;
 };
