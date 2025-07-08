@@ -68,8 +68,7 @@ include_directories(
 #   ${PCL_INCLUDE_DIRS}
 # )
 
-add_executable(map_node 
-  app/map_app.cc 
+add_executable(map_node 368/
   src/lidar_process.cc
   src/map_node_build.cc
 )
