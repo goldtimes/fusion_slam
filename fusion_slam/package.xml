@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>fusion_slam</name>
+  <version>0.0.0</version>
+  <description>The fastlio package</description>
+  <maintainer email="jane.doe@example.com">Jane Doe</maintainer>
+  <license>TODO</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>tf2</depend>
+  <depend>gtsam</depend>
+  <depend>tf2_ros</depend>
+  <depend>roscpp</depend>
+  <depend>std_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>livox_ros_driver2</depend>
+
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+ 
+  <export>
+  </export>
+</package>
