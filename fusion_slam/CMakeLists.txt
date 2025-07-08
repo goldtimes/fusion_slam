@@ -48,10 +48,33 @@ include_directories(
     ${EIGEN3_INCLUDE_DIRS}
 )
 
-# set(SRC_FILE)
+# set(SRC_FILE 
+#   src/lidar_process.cc
+#   src/map_node_build.cc
+# )
+# add_library( 
+#   SRC_LIB  
+#   SHARED
+#   ${SRC_FILE}
+# )
+# target_link_libraries(${SRC_LIB}
+#   ${catkin_LIBRARIES}
+#   ${PCL_LIBRARIES}
+#   spdlog::spdlog
+# )
+# target_include_directories(${SRC_LIB}
+#   PUBLIC
+#   ${catkin_INCLUDE_DIRS}
+#   ${PCL_INCLUDE_DIRS}
+# )
 
-add_executable(map_build_node app/map_build_node.cc)
-target_link_libraries(map_build_node
+add_executable(map_node 
+  app/map_app.cc 
+  src/lidar_process.cc
+  src/map_node_build.cc
+)
+target_link_libraries(map_node
   ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
   spdlog::spdlog
 )
