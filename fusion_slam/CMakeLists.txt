@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.0.2)
-
+project(fusion_slam)
 # C++版本
-add_compile_definitions(-std=c++14)
-set(CMAKE_CXX_FLAGS "-std=c++14 -O3")
-
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 使用标准c++,不使用编译器拓展
@@ -45,13 +42,16 @@ include_directories(${PROJECT_SOURCE_DIR}/thirdparty)
 
 include_directories(
     include
+    ${catkin_INCLUDE_DIRS}
     ${CATKIN_DEVEL_PREFIX}/include  # 手动添加devel路径
-    ${CATKIN_INCLUDE_DIRS}
     ${PCL_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
 )
 
 # set(SRC_FILE)
 
-# add_executable(map_build_node app/map_build_node.cc)
-# target_link_libraries(map_build_node)
+add_executable(map_build_node app/map_build_node.cc)
+target_link_libraries(map_build_node
+  ${catkin_LIBRARIES}
+  spdlog::spdlog
+)

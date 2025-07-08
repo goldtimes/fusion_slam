@@ -15,8 +15,10 @@
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>livox_ros_driver2</depend>
+  <depend>eigen_conversions</depend>
+  <depend>pcl_ros</depend>
 
-  <build_depend>message_generation</build_depend>
+  <depend>message_generation</depend>
   <exec_depend>message_runtime</exec_depend>
 
  
