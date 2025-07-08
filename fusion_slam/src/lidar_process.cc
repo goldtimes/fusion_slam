@@ -28,7 +28,7 @@ void LidarProcess::Process(const sensor_msgs::PointCloud2::ConstPtr& msg, PointC
 }
 void LidarProcess::avia_handler(const livox_ros_driver2::CustomMsg::ConstPtr& msg) {
     size_t num_points = msg->point_num;
-    LOG_DEBUG("avia_handler get num points:{}", num_points);
+    LOG_INFO("avia_handler get num points:{}", num_points);
     int valid_num = 0;
     full_cloud_->clear();
     full_cloud_->reserve(num_points);
@@ -52,7 +52,7 @@ void LidarProcess::avia_handler(const livox_ros_driver2::CustomMsg::ConstPtr& ms
             }
         }
     }
-    LOG_DEBUG("avia_handler after filter get num points:{}", full_cloud_->points.size());
+    LOG_INFO("avia_handler after filter get num points:{}", full_cloud_->points.size());
 }
 void LidarProcess::robosen_handler(const sensor_msgs::PointCloud2::ConstPtr& msg) {
 }

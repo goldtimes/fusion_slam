@@ -36,7 +36,7 @@ class SpdLogger {
               queue_size(8192),
               pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%s:%#] %v"),
               flush_interval(3.0),
-              console_level(spdlog::level::info),
+              console_level(spdlog::level::debug),
               file_level(spdlog::level::info) {
         }
     };

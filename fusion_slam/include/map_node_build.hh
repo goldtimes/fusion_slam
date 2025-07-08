@@ -1,14 +1,40 @@
+/*
+ * @Author: lihang 1019825699@qq.com
+ * @Date: 2025-07-08 23:14:53
+ * @LastEditors: lihang 1019825699@qq.com
+ * @LastEditTime: 2025-07-08 23:31:21
+ * @FilePath: /fusion_slam_ws/src/fusion_slam/include/map_node_build.hh
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 #pragma once
 #include <ros/ros.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <memory>
+#include <vector>
 #include "common/common_lib.hh"
 #include "common/logger.hh"
 #include "lidar_process.hh"
+#include "ros/rate.h"
 
 namespace slam {
 class MapBuildNode {
    public:
-    struct MapBuildNodeConfig {};
+    struct MapBuildNodeConfig {
+        std::string global_frame_;
+        std::string local_frame_;
+        std::string body_frame_;
+        std::string imu_topic_;
+        std::string lidar_topic_;
+        std::string lidar_type_;
+        double det_range;
+        double cube_len;
+        double map_resolution;
+        double move_thresh;
+        bool align_gravity;
+        std::vector<double> imu_ext_rot;
+        std::vector<double> imu_ext_pos;
+    };
 
    public:
     MapBuildNode(const ros::NodeHandle& nh);
@@ -46,6 +72,8 @@ class MapBuildNode {
     double last_gnss_time = -1;
 
     std::shared_ptr<LidarProcess> lidar_process_ptr_;
+    std::shared_ptr<ros::Rate> local_rate_;
+    std::shared_ptr<ros::Rate> loop_rate_;
 
     std::mutex mtx;
 };

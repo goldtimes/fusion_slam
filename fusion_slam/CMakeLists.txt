@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(fusion_slam)
 # C++版本
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 使用标准c++,不使用编译器拓展
 set(CMAKE_CXX_EXTENSIONS OFF)
 # -fexceptions 异常支持 -pthread 线程支持
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -fexceptions")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread -fexceptions")
 # 生成编译的依赖json文件
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
@@ -68,7 +68,8 @@ include_directories(
 #   ${PCL_INCLUDE_DIRS}
 # )
 
-add_executable(map_node 368/
+add_executable(map_node
+  app/map_app.cc
   src/lidar_process.cc
   src/map_node_build.cc
 )
