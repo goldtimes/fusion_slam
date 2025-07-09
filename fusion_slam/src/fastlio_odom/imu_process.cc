@@ -20,19 +20,20 @@ bool IMUProcessor::TryInit(MeasureGroup& sync_package) {
         return false;
     }
 
-    for (const auto& imu : sync_package.imu_queue_) {
-        init_imu_count++;
-        mean_acc += (imu.acc_ - mean_acc) / init_imu_count;
-        mean_gyro += (imu.gyro_ - mean_gyro) / init_imu_count;
+    // for (const auto& imu : sync_package.imu_queue_) {
+    //     init_imu_count++;
+    //     mean_acc += (imu.acc_ - mean_acc) / init_imu_count;
+    //     mean_gyro += (imu.gyro_ - mean_gyro) / init_imu_count;
+    // }
+    // if (init_imu_count < 100) {
+    //     return false;
+    // }
+    // init_success_ = true;
+    // LOG_INFO("mean acc:{},{},{}", mean_acc[0], mean_acc[1], mean_acc[2]);
+    // LOG_INFO("mean gyro:{},{},{}", mean_gyro[0], mean_gyro[1], mean_gyro[2]);
+    static_imu_init_->AddMeasurements(sync_package);
+    if (static_imu_init_->TryInit()) {
     }
-    if (init_imu_count < 100) {
-        return false;
-    }
-    init_success_ = true;
-    LOG_INFO("mean acc:{},{},{}", mean_acc[0], mean_acc[1], mean_acc[2]);
-    LOG_INFO("mean gyro:{},{},{}", mean_gyro[0], mean_gyro[1], mean_gyro[2]);
-    // static_imu_init_->AddMeasurements(sync_package);
-    // if (static_imu_init_->TryInit()) {
     // 设置eskf的初始化状态
     // ieskf_->SetInitState(imu_init_ptr_->GetRGtoI(), config_.r_il, config_.t_il, imu_init_ptr_->GetinitBg(),
     //                      imu_init_ptr_->GetInitBa(), imu_init_ptr_->GetGravity(), imu_init_ptr_->GetCovAcc(),
