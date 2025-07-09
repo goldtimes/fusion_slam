@@ -51,7 +51,7 @@ bool IMUProcessor::TryInit(MeasureGroup& sync_package) {
         // ba
         init_P.block<3, 3>(18, 18) = M3D::Identity() * 0.001;
         // g
-        init_P.block<2, 2>(21, 21) = M3D::Identity() * 0.00001;
+        init_P.block<2, 2>(21, 21) = Eigen::Matrix<double, 2, 2>::Identity() * 0.00001;
         kf_->change_P(init_P);
 
         last_imu_data_ = sync_package.imu_queue_.back();

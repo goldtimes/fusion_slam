@@ -2,6 +2,7 @@
 #include <pcl/filters/voxel_grid.h>
 #include "common/common_lib.hh"
 #include "fastlio_odom/ikd-Tree/ikd_Tree.h"
+#include "imu_process.hh"
 
 namespace slam {
 class IMUProcessor;
@@ -38,8 +39,10 @@ class FastlioOdom {
         double imu_acc_bias_cov = 0.0001;
         double imu_gyro_bias_cov = 0.0001;
         // 外参信息
-        std::vector<double> imu_ext_rot = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-        std::vector<double> imu_ext_pos = {-0.011, -0.02329, 0.04412};
+        M3D imu_ext_rot;
+        V3D imu_ext_pos;
+        // std::vector<double> imu_ext_rot = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+        // std::vector<double> imu_ext_pos = {-0.011, -0.02329, 0.04412};
         // local_map移动相关
         double cube_len = 1000.0;
         double det_range = 100.0;

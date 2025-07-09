@@ -1,15 +1,13 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(fusion_slam)
 # C++版本
-ADD_COMPILE_OPTIONS(-std=c++14 )
-ADD_COMPILE_OPTIONS(-std=c++14 )
-set( CMAKE_CXX_FLAGS "-std=c++14 -O3" )
-set(CMAKE_CXX_STANDARD 14)
+set( CMAKE_CXX_FLAGS "-std=c++17 -O3" )
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 使用标准c++,不使用编译器拓展
 set(CMAKE_CXX_EXTENSIONS OFF)
 # -fexceptions 异常支持 -pthread 线程支持
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -std=c++0x -fexceptions -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread  -fexceptions -O3")
 # 生成编译的依赖json文件
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
@@ -102,6 +100,7 @@ add_executable(map_node
   src/lidar_process.cc
   src/fastlio_odom/fastlio_odom.cc
   src/fastlio_odom/imu_process.cc
+  src/static_imu_init.cc
   include/fastlio_odom/ikd-Tree/ikd_Tree.cpp
 )
 target_link_libraries(map_node

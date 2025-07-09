@@ -11,17 +11,12 @@ FastlioOdom::FastlioOdom(const FastlioOdomConfig& config) : params(config) {
         params.esikf_max_iteration, epsi.data());
 
     // 初始化IMUProcessor
-    // imu_processor_ptr_ = std::make_shared<IMUProcessor>(kf_);
+    IMUProcessor::IMUProcessorConfig imu_process_config_;
+    imu_process_config_.align_gravity = config.align_gravity;
+    imu_processor_ptr_ = std::make_shared<IMUProcessor>(imu_process_config_, kf_);
+    imu_processor_ptr_->setExtParams(config.imu_ext_rot, config.imu_ext_pos);
     // imu_processor_ptr_->setCov(params.imu_gyro_cov, params.imu_acc_cov, params.imu_gyro_bias_cov,
     //                            params.imu_acc_bias_cov);
-    Eigen::Matrix3d rot_ext;
-    Eigen::Vector3d pos_ext;
-    rot_ext << params.imu_ext_rot[0], params.imu_ext_rot[1], params.imu_ext_rot[2], params.imu_ext_rot[3],
-        params.imu_ext_rot[4], params.imu_ext_rot[5], params.imu_ext_rot[6], params.imu_ext_rot[7],
-        params.imu_ext_rot[8];
-    pos_ext << params.imu_ext_pos[0], params.imu_ext_pos[1], params.imu_ext_pos[2];
-    // imu_processor_ptr_->setExtParams(rot_ext, pos_ext);
-    // imu_processor_ptr_->setAlignGravity(params.align_gravity);
     // 初始化KDTree
     ikdtree_ = std::make_shared<KD_TREE<PointType>>();
     ikdtree_->set_downsample_param(params.resolution);
@@ -46,6 +41,9 @@ FastlioOdom::FastlioOdom(const FastlioOdomConfig& config) : params(config) {
     point_select_flag_.resize(20000, false);
 }
 void FastlioOdom::mapping(MeasureGroup& sync_packag) {
+    if (imu_processor_ptr_->TryInit(sync_packag)) {
+        system_status_ = SYSTEM_STATUES::MAPPING;
+    }
 }
 void FastlioOdom::trimMap() {
 }

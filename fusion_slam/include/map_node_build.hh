@@ -14,6 +14,7 @@
 #include <vector>
 #include "common/common_lib.hh"
 #include "common/logger.hh"
+#include "fastlio_odom/fastlio_odom.hh"
 #include "lidar_process.hh"
 #include "ros/rate.h"
 
@@ -32,8 +33,8 @@ class MapBuildNode {
         double map_resolution;
         double move_thresh;
         bool align_gravity;
-        std::vector<double> imu_ext_rot;
-        std::vector<double> imu_ext_pos;
+        M3D imu_ext_rot;
+        V3D imu_ext_pos;
     };
 
    public:
@@ -81,6 +82,8 @@ class MapBuildNode {
     bool lidar_pushed = false;
     double lidar_mean_scantime = 0.0;
     int scan_num = 0;
+    std::shared_ptr<FastlioOdom> fastlio_odom_ptr_;
+    FastlioOdom::FastlioOdomConfig fastlio_odom_config_;
 
     std::mutex mtx;
 };

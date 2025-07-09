@@ -17,6 +17,7 @@ MapBuildNode::MapBuildNode(const ros::NodeHandle& nh) : nh_(nh) {
     load_params();
     init_sub_pub();
     lidar_process_ptr_ = std::make_shared<LidarProcess>(lidar_process_config_);
+    fastlio_odom_ptr_ = std::make_shared<FastlioOdom>(fastlio_odom_config_);
     LOG_INFO("MapBuildNode initied.....");
 }
 
@@ -92,9 +93,13 @@ void MapBuildNode::load_params() {
     nh_.param<double>("lio_builder/resolution", config_.map_resolution, 0.1);
     nh_.param<double>("lio_builder/move_thresh", config_.move_thresh, 1.5);
     nh_.param<bool>("lio_builder/align_gravity", config_.align_gravity, true);
-    nh_.param<std::vector<double>>("lio_builder/imu_ext_rot", config_.imu_ext_rot, std::vector<double>());
-    nh_.param<std::vector<double>>("lio_builder/imu_ext_pos", config_.imu_ext_pos, std::vector<double>());
-
+    std::vector<double> imu_ext_rot, imu_ext_pose;
+    nh_.param<std::vector<double>>("lio_builder/imu_ext_rot", imu_ext_rot, std::vector<double>());
+    nh_.param<std::vector<double>>("lio_builder/imu_ext_pos", imu_ext_pose, std::vector<double>());
+    config_.imu_ext_rot = Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(imu_ext_rot.data());
+    config_.imu_ext_pos << imu_ext_pose[0], imu_ext_pose[1], imu_ext_pose[2];
+    std::cout << "imu_ext_rot: \n" << config_.imu_ext_rot << std::endl;
+    std::cout << "imu_ext_pos: \n" << config_.imu_ext_pos.transpose() << std::endl;
     // nh_.param<bool>("loop_closure/activate", loop_closure_.mutableParams().activate, true);
     // nh_.param<double>("loop_closure/rad_thresh", loop_closure_.mutableParams().rad_thresh, 0.4);
     // nh_.param<double>("loop_closure/dist_thresh", loop_closure_.mutableParams().dist_thresh, 2.5);
@@ -105,6 +110,14 @@ void MapBuildNode::load_params() {
     // nh_.param<double>("loop_closure/submap_resolution", loop_closure_.mutableParams().submap_resolution, 0.2);
     // nh_.param<int>("loop_closure/submap_search_num", loop_closure_.mutableParams().submap_search_num, 20);
     // nh_.param<double>("loop_closure/loop_icp_thresh", loop_closure_.mutableParams().loop_icp_thresh, 0.3);
+
+    fastlio_odom_config_.move_thresh = config_.move_thresh;
+    fastlio_odom_config_.align_gravity = config_.align_gravity;
+    fastlio_odom_config_.cube_len = config_.cube_len;
+    fastlio_odom_config_.resolution = config_.map_resolution;
+    fastlio_odom_config_.imu_ext_rot = config_.imu_ext_rot;
+    fastlio_odom_config_.imu_ext_pos = config_.imu_ext_pos;
+    // fastlio_odom_config_.esikf_max_iteration = config_.
 }
 void MapBuildNode::init_sub_pub() {
     imu_sub_ = nh_.subscribe(config_.imu_topic_, 200, &MapBuildNode::imu_callback, this);
@@ -174,6 +187,7 @@ void MapBuildNode::Run() {
             continue;
         }
         LOG_INFO("SyncPackage Success");
+        fastlio_odom_ptr_->mapping(sync_package);
     }
 }
 }  // namespace slam
