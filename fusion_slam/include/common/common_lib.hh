@@ -9,6 +9,7 @@
  */
 #pragma once
 #include <deque>
+#include <numeric>
 #include "eigen_type.hh"
 #include "fastlio_odom/IKFoM_toolkit/esekfom/esekfom.hpp"
 #include "sensors/encoder.hh"
@@ -58,13 +59,13 @@ struct MeasureGroup {
     PointCloudPtr current_lidar;
 };
 
-inline V3D PointToEigen(const PointType &point) {
+inline V3D PointToEigen(const PointType& point) {
     V3D point_eigen;
     point_eigen << point.x, point.y, point.z;
     return point_eigen;
 }
 
-inline PointType EigenToPoint(const V3D &point) {
+inline PointType EigenToPoint(const V3D& point) {
     PointType p;
     p.x = point.x();
     p.y = point.y();
@@ -72,7 +73,7 @@ inline PointType EigenToPoint(const V3D &point) {
     return p;
 }
 
-inline PointCloudPtr transformCloud(const PointCloudPtr &input_cloud, const Eigen::Matrix3d &rot, const V3D &trans) {
+inline PointCloudPtr transformCloud(const PointCloudPtr& input_cloud, const Eigen::Matrix3d& rot, const V3D& trans) {
     PointCloudPtr out(new PointCloud);
     out->reserve(input_cloud->size());
     for (int i = 0; i < input_cloud->size(); ++i) {
@@ -87,7 +88,63 @@ inline PointCloudPtr transformCloud(const PointCloudPtr &input_cloud, const Eige
     return out;
 }
 
-Eigen::Matrix<double, 24, 1> get_f(state_ikfom &s, const input_ikfom &in);
-Eigen::Matrix<double, 24, 23> df_dx(state_ikfom &s, const input_ikfom &in);
-Eigen::Matrix<double, 24, 12> df_dw(state_ikfom &s, const input_ikfom &in);
+Eigen::Matrix<double, 24, 1> get_f(state_ikfom& s, const input_ikfom& in);
+Eigen::Matrix<double, 24, 23> df_dx(state_ikfom& s, const input_ikfom& in);
+Eigen::Matrix<double, 24, 12> df_dw(state_ikfom& s, const input_ikfom& in);
+
+/**
+    C 为容器的类型 队列，vector
+    D 为均值的类型 Eigen::Vector3d
+    Getter 为函数 所以这里是一个右值引用
+    比如collects 为std::deque<IMUData>,data 就是IMUData, gettter函数就是获得里面的acc/gyro
+ */
+template <typename C, typename D, typename Getter>
+void ComputeMeanAndCovDiag(const C& collects, D& mean, D& cov_diag, Getter&& getter) {
+    size_t len = collects.size();
+    // 计算均值
+    mean = std::accumulate(collects.begin(), collects.end(), D::Zero().eval(),
+                           [&getter](const D& sum, const auto& data) -> D { return sum + getter(data); }) /
+           len;
+    // 计算协方差对角线
+    cov_diag = std::accumulate(collects.begin(), collects.end(), D::Zero().eval(),
+                               [&getter, &mean](const D& sum, const auto& data) {
+                                   return sum + (getter(data) - mean).cwiseAbs2().eval();
+                               }) /
+               (len - 1);
+}
+
+template <typename C, int dim, typename Getter>
+void ComputeMeanAndCov(const C& collects, Eigen::Matrix<double, dim, 1>& mean, Eigen::Matrix<double, dim, dim>& cov,
+                       Getter&& getter) {
+    using D = Eigen::Matrix<double, dim, 1>;
+    using E = Eigen::Matrix<double, dim, dim>;
+    size_t len = collects.size();
+    // 计算均值
+    // clang-format off
+
+    mean = std::accumulate(collects.begin(), collects.end(), D::Zero().eval(),
+                           [&getter](const D& sum, const auto& data) -> D { return sum + getter(data); }) / len;
+    // 计算协方差对角线
+    cov = std::accumulate(collects.begin(), collects.end(), E::Zero().eval(),
+                               [&getter, &mean](const E& sum, const auto& data) -> E{
+                                auto value = getter(data).eval();
+                                D v = value - mean;
+                                return sum + v * v.transpose();
+                               }) / (len - 1);
+    // clang-format on
+}
+/**
+    增量ndt
+ */
+template <typename S, int dim>
+void UpdateMeanAndCov(int history_points, int added_points, const Eigen::Matrix<S, dim, 1>& olded_mean,
+                      const Eigen::Matrix<S, dim, dim>& older_cov, const Eigen::Matrix<S, dim, 1>& added_mean,
+                      const Eigen::Matrix<S, dim, dim>& added_cov, Eigen::Matrix<S, dim, 1>& new_mean,
+                      Eigen::Matrix<S, dim, dim>& new_cov) {
+    new_mean = (history_points * olded_mean + added_points * added_mean) / (history_points + added_points);
+    new_cov = (history_points * (older_cov + (olded_mean - new_mean) * (olded_mean - new_mean).template transpose()) +
+               added_points * (added_cov + (added_mean - new_mean) * (added_mean - new_mean).template transpose())) /
+              (history_points + added_points);
+}
+
 }  // namespace slam
