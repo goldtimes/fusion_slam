@@ -34,6 +34,10 @@ class IMUProcessor {
 
     void reset();
 
+    const bool& GetInitSuccess() const {
+        return init_success_;
+    }
+
    private:
     IMUProcessorConfig config_;
     std::shared_ptr<esekfom::esekf<state_ikfom, PROCESS_NOISE_DOF, input_ikfom>> kf_;

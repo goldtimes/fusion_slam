@@ -1,6 +1,7 @@
 #pragma once
 #include <pcl/filters/voxel_grid.h>
 #include "common/common_lib.hh"
+#include "common/logger.hh"
 #include "fastlio_odom/ikd-Tree/ikd_Tree.h"
 #include "imu_process.hh"
 
