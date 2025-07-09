@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-09 23:02:09
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-10 00:05:08
+ * @LastEditTime: 2025-07-10 00:37:51
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/imu_process.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -27,6 +27,19 @@ void IMUProcessor::setExtParams(const M3D& rot, const V3D& pos) {
     rot_ext = rot;
     pos_ext = pos;
 }
+
+void IMUProcessor::SetCov(double gyro_cov, double acc_cov, double gyro_bias_cov, double acc_bias_cov) {
+    gyro_cov_ = Eigen::Vector3d(gyro_cov, gyro_cov, gyro_cov);
+    acc_cov_ = Eigen::Vector3d(acc_cov, acc_cov, acc_cov);
+    gyro_bias_cov_ = Eigen::Vector3d(gyro_bias_cov, gyro_bias_cov, gyro_bias_cov);
+    acc_bias_cov_ = Eigen::Vector3d(acc_bias_cov, acc_bias_cov, acc_bias_cov);
+}
+void IMUProcessor::SetCov(const V3D& gyro_cov, const V3D& acc_cov, const V3D& gyro_bias_cov, const V3D& acc_bias_cov) {
+    gyro_cov_ = gyro_cov;
+    acc_cov_ = acc_cov;
+    gyro_bias_cov_ = gyro_bias_cov;
+    acc_bias_cov_ = acc_bias_cov;
+}
 bool IMUProcessor::TryInit(MeasureGroup& sync_package) {
     if (sync_package.imu_queue_.empty()) {
         return false;
@@ -50,12 +63,12 @@ bool IMUProcessor::TryInit(MeasureGroup& sync_package) {
             mean_acc = static_imu_init_->GetInitBa();
             auto rot = Eigen::Quaterniond::FromTwoVectors((-mean_acc).normalized(), Eigen::Vector3d(0.0, 0.0, -1.0));
             grav = s2(Eigen::Vector3d(0, 0, -G_m_s2));
-            LOG_INFO("state ror:{}", rot.matrix());
+            LOG_INFO("state ror:{}", rot.matrix().inverse() * -1);
         } else {
             grav = s2(-mean_acc / mean_acc.norm() * G_m_s2);
         }
-        // LOG_INFO("gravity:{},{},{}", grav);
-        // state.ba = static_imu_init_->GetInitBa();
+        LOG_INFO("gravity:{}", grav);
+        state.ba = static_imu_init_->GetInitBa();
         kf_->change_x(state);
         // 初始化协方差
         esekfom::esekf<state_ikfom, PROCESS_NOISE_DOF, input_ikfom>::cov init_P = kf_->get_P();

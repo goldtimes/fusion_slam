@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include "common/common_lib.hh"
+#include "common/eigen_type.hh"
 
 namespace slam {
 class StaticImuInit;
@@ -32,6 +33,9 @@ class IMUProcessor {
 
     void setExtParams(const M3D& rot, const V3D& pos);
 
+    void SetCov(double gyro_cov, double acc_cov, double gyro_bias_cov, double acc_bias_cov);
+    void SetCov(const V3D& gyro_cov, const V3D& acc_cov, const V3D& gyro_bias_cov, const V3D& acc_bias_cov);
+
     void reset();
 
     const bool& GetInitSuccess() const {
@@ -54,5 +58,10 @@ class IMUProcessor {
     int init_imu_count;
     V3D mean_acc, mean_gyro;
     bool init_success_ = false;
+
+    V3D gyro_cov_;
+    V3D acc_cov_;
+    V3D acc_bias_cov_;
+    V3D gyro_bias_cov_;
 };
 }  // namespace slam

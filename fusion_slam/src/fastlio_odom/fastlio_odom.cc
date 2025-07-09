@@ -2,12 +2,13 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-09 23:02:09
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-10 00:10:14
+ * @LastEditTime: 2025-07-10 00:52:05
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/fastlio_odom.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 #include "fastlio_odom/fastlio_odom.hh"
+#include "sensors/lidar.hh"
 
 namespace slam {
 FastlioOdom::FastlioOdom(const FastlioOdomConfig& config) : params(config) {
@@ -23,9 +24,11 @@ FastlioOdom::FastlioOdom(const FastlioOdomConfig& config) : params(config) {
     IMUProcessor::IMUProcessorConfig imu_process_config_;
     imu_process_config_.align_gravity = config.align_gravity;
     imu_processor_ptr_ = std::make_shared<IMUProcessor>(imu_process_config_, kf_);
+    // 设置外参
     imu_processor_ptr_->setExtParams(config.imu_ext_rot, config.imu_ext_pos);
-    // imu_processor_ptr_->setCov(params.imu_gyro_cov, params.imu_acc_cov, params.imu_gyro_bias_cov,
-    //                            params.imu_acc_bias_cov);
+    // 设置Q_过程噪声
+    imu_processor_ptr_->SetCov(params.imu_gyro_cov, params.imu_acc_cov, params.imu_gyro_bias_cov,
+                               params.imu_acc_bias_cov);
     // 初始化KDTree
     ikdtree_ = std::make_shared<KD_TREE<PointType>>();
     ikdtree_->set_downsample_param(params.resolution);
@@ -53,7 +56,18 @@ void FastlioOdom::mapping(MeasureGroup& sync_packag) {
     if (!imu_processor_ptr_->GetInitSuccess()) {
         imu_processor_ptr_->TryInit(sync_packag);
     }
-    //
+    // imu传播和去畸变
+    PointCloudPtr undistort_cloud(new PointCloud);
+    imu_processor_ptr_->PredictAndUndistort(sync_packag, undistort_cloud);
+    if (system_status_ == SYSTEM_STATUES::INITIALIZE) {
+        // 转换到世界坐标系下的点云
+        // 构造ikdtree
+        system_status_ = SYSTEM_STATUES::MAPPING;
+        return;
+    }
+    trimMap();
+    // align
+    increaseMap();
 }
 void FastlioOdom::trimMap() {
 }
