@@ -47,5 +47,8 @@ class IMUProcessor {
     // 用来去畸变的imu pose
     std::vector<Pose> undistored_imu_poses;
     IMUData last_imu_data_;
+    int init_imu_count;
+    V3D mean_acc, mean_gyro;
+    bool init_success_ = false;
 };
 }  // namespace slam

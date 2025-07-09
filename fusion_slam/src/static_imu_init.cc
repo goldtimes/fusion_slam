@@ -58,7 +58,7 @@ bool StaticImuInit::TryInit() {
     // 施密特正交来对齐重力
     LOG_INFO("Align Gravity");
     grad_schmit(mean_acce, R_GtoI);
-    LOG_INFO("R_GtoI:{}", R_GtoI);
+    // LOG_INFO("R_GtoI:{}", R_GtoI);
     std::cout << "R_GtoI:\n" << R_GtoI << std::endl;
     init_success_ = true;
     return true;
