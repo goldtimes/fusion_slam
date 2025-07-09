@@ -7,6 +7,7 @@ namespace slam {
 using PointType = pcl::PointXYZINormal;
 using PointCloud = pcl::PointCloud<PointType>;
 using PointCloudPtr = PointCloud::Ptr;
+using PointVector = std::vector<PointType, Eigen::aligned_allocator<PointType>>;
 }  // namespace slam
 
 /*** Velodyne ***/

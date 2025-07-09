@@ -15,8 +15,8 @@ using Vec3b = Eigen::Matrix<char, 3, 1>;
 
 using Vec2d = Eigen::Vector2d;
 using Vec2f = Eigen::Vector2f;
-using Vec3d = Eigen::Vector3d;
-using V3D = Eigen::Vector3f;
+// using Vec3d = Eigen::Vector3d;
+using V3D = Eigen::Vector3d;
 using Vec4d = Eigen::Vector4d;
 using Vec4f = Eigen::Vector4f;
 using Vec5d = Eigen::Matrix<double, 5, 1>;
@@ -53,8 +53,7 @@ using Quatf = Eigen::Quaternionf;
 
 const M3D Eye3d = M3D::Identity();
 const Mat3f Eye3f = Mat3f::Identity();
-const Vec3d Zero3d(0, 0, 0);
-const V3D Zero3f(0, 0, 0);
+const V3D Zero3d(0, 0, 0);
 
 // pose represented as sophus structs
 using SE2 = Sophus::SE2d;
