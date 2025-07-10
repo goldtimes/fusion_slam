@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-08 23:14:53
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-09 00:30:54
+ * @LastEditTime: 2025-07-11 00:39:00
  * @FilePath: /fusion_slam_ws/src/fusion_slam/include/map_node_build.hh
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -16,6 +16,7 @@
 #include "common/logger.hh"
 #include "fastlio_odom/fastlio_odom.hh"
 #include "lidar_process.hh"
+#include "ros/publisher.h"
 #include "ros/rate.h"
 
 namespace slam {
@@ -53,6 +54,16 @@ class MapBuildNode {
 
     bool SyncPackage(MeasureGroup& sync_package);
 
+    void publishCloud(ros::Publisher& publisher, const sensor_msgs::PointCloud2& cloud_to_pub) {
+        if (publisher.getNumSubscribers() == 0) return;
+        publisher.publish(cloud_to_pub);
+    }
+
+    void publishOdom(const nav_msgs::Odometry& odom_to_pub) {
+        if (odom_pub_.getNumSubscribers() == 0) return;
+        odom_pub_.publish(odom_to_pub);
+    }
+
    private:
     ros::NodeHandle nh_;
     MapBuildNodeConfig config_;
@@ -62,6 +73,11 @@ class MapBuildNode {
     ros::Subscriber lidar_sub_;
     ros::Subscriber gnss_sub_;
     ros::Subscriber encoder_sub_;
+
+    ros::Publisher odom_pub_;
+    ros::Publisher body_cloud_pub_;
+    ros::Publisher world_cloud_pub_;
+    ros::Publisher path_pub_;
 
     std::deque<PointCloudPtr> lidar_queque_;
     std::deque<double> lidar_time_queue_;
@@ -82,6 +98,8 @@ class MapBuildNode {
     bool lidar_pushed = false;
     double lidar_mean_scantime = 0.0;
     int scan_num = 0;
+    double current_time_;
+    state_ikfom current_state_;
     std::shared_ptr<FastlioOdom> fastlio_odom_ptr_;
     FastlioOdom::FastlioOdomConfig fastlio_odom_config_;
 

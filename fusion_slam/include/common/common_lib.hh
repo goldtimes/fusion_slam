@@ -2,12 +2,13 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-08 23:14:53
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-09 00:10:50
+ * @LastEditTime: 2025-07-11 00:41:02
  * @FilePath: /fusion_slam_ws/src/fusion_slam/include/common/common_lib.hh
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 #pragma once
+#include <geometry_msgs/TransformStamped.h>
 #include <deque>
 #include <numeric>
 #include "eigen_type.hh"
@@ -88,6 +89,10 @@ inline PointCloudPtr transformCloud(const PointCloudPtr& input_cloud, const Eige
     return out;
 }
 
+inline double sq_dist(const PointType& p1, const PointType& p2) {
+    return (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y) + (p1.z - p2.z) * (p1.z - p2.z);
+}
+
 Eigen::Matrix<double, 24, 1> get_f(state_ikfom& s, const input_ikfom& in);
 Eigen::Matrix<double, 24, 23> df_dx(state_ikfom& s, const input_ikfom& in);
 Eigen::Matrix<double, 24, 12> df_dw(state_ikfom& s, const input_ikfom& in);
@@ -146,5 +151,15 @@ void UpdateMeanAndCov(int history_points, int added_points, const Eigen::Matrix<
                added_points * (added_cov + (added_mean - new_mean) * (added_mean - new_mean).template transpose())) /
               (history_points + added_points);
 }
+
+bool esti_plane(Eigen::Vector4d& out, const PointVector& points, const double& thresh);
+geometry_msgs::TransformStamped eigen2Transform(const Eigen::Matrix3d& rot, const Eigen::Vector3d& pos,
+                                                const std::string& frame_id, const std::string& child_frame_id,
+                                                const double& timestamp);
+
+nav_msgs::Odometry eigen2Odometry(const Eigen::Matrix3d& rot, const Eigen::Vector3d& pos, const std::string& frame_id,
+                                  const std::string& child_frame_id, const double& timestamp);
+
+sensor_msgs::PointCloud2 pcl2msg(PointCloudPtr inp, std::string& frame_id, const double& timestamp);
 
 }  // namespace slam

@@ -2,14 +2,17 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-08 23:14:53
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-09 00:46:12
+ * @LastEditTime: 2025-07-11 00:50:07
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/map_node_build.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 #include "map_node_build.hh"
+#include "common/common_lib.hh"
+#include "fastlio_odom/fastlio_odom.hh"
 #include "lidar_process.hh"
 #include "ros/init.h"
+#include "sensor_msgs/PointCloud2.h"
 
 namespace slam {
 MapBuildNode::MapBuildNode(const ros::NodeHandle& nh) : nh_(nh) {
@@ -124,6 +127,8 @@ void MapBuildNode::init_sub_pub() {
     lidar_sub_ = lidar_process_config_.lidar_type_ == LIDAR_TYPE::AVIA
                      ? nh_.subscribe(config_.lidar_topic_, 10, &MapBuildNode::livox_callback, this)
                      : nh_.subscribe(config_.lidar_topic_, 10, &MapBuildNode::standard_pcl_callback, this);
+    body_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/lio_node/body_cloud", 10);
+    world_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/lio_node/world_cloud", 10);
 }
 
 bool MapBuildNode::SyncPackage(MeasureGroup& sync_package) {
@@ -188,6 +193,24 @@ void MapBuildNode::Run() {
         }
         LOG_INFO("SyncPackage Success");
         fastlio_odom_ptr_->mapping(sync_package);
+        if (fastlio_odom_ptr_->GetSystemStatus() == SYSTEM_STATUES::INITIALIZE) {
+            continue;
+        }
+        current_time_ = sync_package.lidar_end_time;
+        current_state_ = fastlio_odom_ptr_->GetCurrentState();
+        auto T_body_to_local = eigen2Transform(current_state_.rot.matrix(), current_state_.pos, config_.local_frame_,
+                                               config_.body_frame_, sync_package.lidar_end_time);
+        tf_broadcaster_.sendTransform(T_body_to_local);
+
+        publishOdom(eigen2Odometry(current_state_.rot.toRotationMatrix(), current_state_.pos, config_.local_frame_,
+                                   config_.body_frame_, current_time_));
+
+        publishCloud(body_cloud_pub_,
+                     pcl2msg(fastlio_odom_ptr_->cloudUndistortedBody(), config_.body_frame_, current_time_));
+        publishCloud(world_cloud_pub_,
+                     pcl2msg(fastlio_odom_ptr_->GetcCloudWorld(), config_.local_frame_, current_time_));
+
+        // publishLocalPath();
     }
 }
 }  // namespace slam

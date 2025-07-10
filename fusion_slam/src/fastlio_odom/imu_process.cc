@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-09 23:02:09
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-10 00:37:51
+ * @LastEditTime: 2025-07-10 23:53:56
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/imu_process.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -179,7 +179,7 @@ void IMUProcessor::PredictAndUndistort(MeasureGroup& sync_package, PointCloudPtr
 
 // 这里去畸变是转到帧尾的时刻
 void IMUProcessor::Undistort_cloud(PointCloudPtr& out) {
-    pcl::io::savePCDFile("/home/kilox/origin.pcd", *out);
+    // pcl::io::savePCDFile("/home/hang/origin.pcd", *out);
     // 帧尾时刻的imu位姿
     state_ikfom end_state = kf_->get_x();
     M3D end_rot = end_state.rot.matrix();
@@ -218,6 +218,13 @@ void IMUProcessor::Undistort_cloud(PointCloudPtr& out) {
             if (it_pcl == out->points.begin()) break;
         }
     }
-    pcl::io::savePCDFile("/home/kilox/undistort.pcd", *out);
+    // pcl::io::savePCDFile("/home/hang/undistort.pcd", *out);
 }
+
+void IMUProcessor::reset() {
+    init_imu_count = 0;
+    mean_acc = Eigen::Vector3d::Zero();
+    mean_gyro = Eigen::Vector3d::Zero();
+}
+
 }  // namespace slam

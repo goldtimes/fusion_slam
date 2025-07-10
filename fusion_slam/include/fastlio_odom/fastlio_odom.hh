@@ -4,6 +4,7 @@
 #include "common/logger.hh"
 #include "fastlio_odom/ikd-Tree/ikd_Tree.h"
 #include "imu_process.hh"
+#include "sensors/lidar.hh"
 
 namespace slam {
 class IMUProcessor;
@@ -24,6 +25,7 @@ struct LocalMap {
     double move_thresh;
     BoxPointType local_map_corner;
     std::vector<BoxPointType> cub_to_rm;
+    bool is_initialed;
 };
 
 class FastlioOdom {
@@ -88,6 +90,9 @@ class FastlioOdom {
     }
     PointCloudPtr cloudUndistortedBody();
     PointCloudPtr cloudDownBody();
+    void reset();
+
+    PointCloudPtr transformWorld(const PointCloudPtr& cloud_in);
 
    private:
     FastlioOdomConfig params;
