@@ -55,6 +55,7 @@ FastlioOdom::FastlioOdom(const FastlioOdomConfig& config) : params(config) {
 void FastlioOdom::mapping(MeasureGroup& sync_packag) {
     if (!imu_processor_ptr_->GetInitSuccess()) {
         imu_processor_ptr_->TryInit(sync_packag);
+        return;
     }
     // imu传播和去畸变
     PointCloudPtr undistort_cloud(new PointCloud);

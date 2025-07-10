@@ -11,12 +11,12 @@ struct IMUData {
     }
     IMUData(const sensor_msgs::Imu::ConstPtr& msg) {
         timestamped_ = msg->header.stamp.toSec();
-        if (msg->header.frame_id == "livox_frame") {
-            acc_ << msg->linear_acceleration.x * 9.81, msg->linear_acceleration.y * 9.81,
-                msg->linear_acceleration.z * 9.81;
-        } else {
-            acc_ << msg->linear_acceleration.x, msg->linear_acceleration.y, msg->linear_acceleration.z;
-        }
+        // if (msg->header.frame_id == "livox_frame") {
+        //     acc_ << msg->linear_acceleration.x * 9.81, msg->linear_acceleration.y * 9.81,
+        //         msg->linear_acceleration.z * 9.81;
+        // } else {
+        acc_ << msg->linear_acceleration.x, msg->linear_acceleration.y, msg->linear_acceleration.z;
+        // }
         gyro_ << msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z;
     }
     double timestamped_;

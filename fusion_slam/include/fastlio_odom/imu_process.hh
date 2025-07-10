@@ -35,7 +35,7 @@ class IMUProcessor {
 
     void SetCov(double gyro_cov, double acc_cov, double gyro_bias_cov, double acc_bias_cov);
     void SetCov(const V3D& gyro_cov, const V3D& acc_cov, const V3D& gyro_bias_cov, const V3D& acc_bias_cov);
-
+    void Undistort_cloud(PointCloudPtr& out);
     void reset();
 
     const bool& GetInitSuccess() const {
@@ -58,7 +58,12 @@ class IMUProcessor {
     int init_imu_count;
     V3D mean_acc, mean_gyro;
     bool init_success_ = false;
-
+    // imu来传播的队列
+    std::deque<IMUData> imus;
+    // 存储用来去畸变的imu_pose
+    std::vector<Pose> imu_poses_;
+    V3D last_acc;
+    V3D last_gyro;
     V3D gyro_cov_;
     V3D acc_cov_;
     V3D acc_bias_cov_;

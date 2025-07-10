@@ -96,5 +96,112 @@ bool IMUProcessor::TryInit(MeasureGroup& sync_package) {
 }
 
 void IMUProcessor::PredictAndUndistort(MeasureGroup& sync_package, PointCloudPtr& undistort_pcl) {
+    imus.clear();
+    imus.push_back(last_imu_data_);
+    imus.insert(imus.end(), sync_package.imu_queue_.begin(), sync_package.imu_queue_.end());
+    const double lidar_begin_time = sync_package.lidar_begin_time;
+    const double lidar_end_time = sync_package.lidar_end_time;
+    const double imu_begin_time = imus.front().timestamped_;
+    const double imu_end_time = imus.back().timestamped_;
+    undistort_pcl = sync_package.current_lidar;
+    LOG_INFO("undistort before lidar size:{}", undistort_pcl->size());
+    // sort
+    std::sort(undistort_pcl->begin(), undistort_pcl->end(),
+              [](const PointType& p1, const PointType& p2) { return p1.curvature < p2.curvature; });
+    //  当前状态
+    state_ikfom current_state = kf_->get_x();
+    imu_poses_.clear();
+    imu_poses_.emplace_back(0.0, last_acc, last_gyro, current_state.vel, current_state.pos,
+                            current_state.rot.toRotationMatrix());
+    V3D acc_mean, gyro_mean;
+    double dt = 0.0;
+    Q_.setIdentity();
+    input_ikfom input;
+    // 计算每一帧imu的位姿
+    for (auto it = imus.begin(); it < (imus.end() - 1); it++) {
+        IMUData& head = *it;
+        IMUData& tail = *(it + 1);
+        // lidar_being_time-imu_begin_time-imu_end_time---lidar_end_time;
+        // 输入
+        if (tail.timestamped_ < last_lidar_time_end_) {
+            continue;
+        }
+        acc_mean = 0.5 * (head.acc_ + tail.acc_);
+        LOG_INFO("acc_mean:{}", acc_mean.transpose());
+        gyro_mean = 0.5 * (head.gyro_ + tail.gyro_);
+        // normalize acc ？
+        acc_mean = acc_mean * G_m_s2 / mean_acc.norm();
+        LOG_INFO("norm acc_mean:{}", acc_mean.transpose());
+        if (head.timestamped_ < last_lidar_time_end_) {
+            dt = tail.timestamped_ - last_lidar_time_end_;
+        } else {
+            dt = tail.timestamped_ - head.timestamped_;
+        }
+        // 噪声矩阵
+        Q_.block<3, 3>(0, 0).diagonal() = gyro_cov_;
+        Q_.block<3, 3>(3, 3).diagonal() = acc_cov_;
+        Q_.block<3, 3>(6, 6).diagonal() = gyro_bias_cov_;
+        Q_.block<3, 3>(9, 9).diagonal() = acc_bias_cov_;
+        input.gyro = gyro_mean;
+        input.acc = acc_mean;
+        // 预测
+        kf_->predict(dt, Q_, input);
+        current_state = kf_->get_x();
+        LOG_INFO("current_state:{}", current_state);
+        last_gyro = gyro_mean - current_state.bg;
+        last_acc = current_state.rot.toRotationMatrix() * (acc_mean - current_state.ba);
+        last_acc += current_state.grav.get_vect();
+        double offset = tail.timestamped_ - lidar_begin_time;
+        imu_poses_.emplace_back(offset, last_acc, last_gyro, current_state.vel, current_state.pos,
+                                current_state.rot.toRotationMatrix());
+    }
+    // 计算最后一个点云的位姿
+    dt = lidar_end_time - imu_end_time;
+    kf_->predict(dt, Q_, input);
+    last_imu_data_ = imus.back();
+    last_lidar_time_end_ = lidar_end_time;
+    Undistort_cloud(undistort_pcl);
+}
+
+// 这里去畸变是转到帧尾的时刻
+void IMUProcessor::Undistort_cloud(PointCloudPtr& out) {
+    // 帧尾时刻的imu位姿
+    state_ikfom end_state = kf_->get_x();
+    M3D end_rot = end_state.rot.matrix();
+    V3D end_pos = end_state.pos;
+    V3D end_vel = end_state.vel;
+    // lidar_to imu坐标系
+    M3D r_il = end_state.offset_R_L_I.toRotationMatrix();
+    V3D t_il = end_state.offset_T_L_I;
+
+    auto it_pcl = out->points.end() - 1;
+    double dt;
+    for (auto it_kp = imu_poses_.end() - 1; it_kp != imu_poses_.begin(); --it_kp) {
+        auto head = it_kp - 1;
+        auto tail = it_kp;
+
+        M3D imu_rot = head->rot;
+        V3D imu_pos = head->pos;
+        V3D imu_vel = head->vel;
+        V3D imu_acc = tail->acc;
+        V3D imu_gyro = tail->gyro;
+
+        for (; it_pcl->curvature / double(1000) > head->offset; it_pcl--) {
+            dt = it_pcl->curvature / double(1000) - head->offset;
+            V3D point_lidar(it_pcl->x, it_pcl->y, it_pcl->z);
+            // 计算改点时刻的imu姿态
+            M3D T_R_i = imu_rot * Sophus::SO3d::exp(imu_gyro * dt).matrix();
+            V3D T_p_i = imu_pos + imu_vel * dt + 0.5 * imu_acc * dt * dt;
+            //      p_l_end =  T_LI *   T_iendw * T_wi * T_IL * p_l
+            Eigen::Vector3d p_compensate =
+                r_il.transpose() *
+                (end_rot.transpose() * (T_R_i * (r_il * point_lidar + t_il) + T_p_i - end_pos) - t_il);
+            it_pcl->x = p_compensate(0);
+            it_pcl->y = p_compensate(1);
+            it_pcl->z = p_compensate(2);
+
+            if (it_pcl == out->points.begin()) break;
+        }
+    }
 }
 }  // namespace slam
