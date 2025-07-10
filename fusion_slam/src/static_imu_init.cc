@@ -40,6 +40,7 @@ bool StaticImuInit::TryInit() {
     // 这里开始初始化，计算加速度的均值，角速度的均值
     // 这里学习高翔的老师的用法
     Eigen::Vector3d mean_gyro, mean_acce;
+    LOG_INFO("init_size:{}", init_imus_.size());
     ComputeMeanAndCovDiag(init_imus_, mean_gyro, cov_gyro_, [](const IMUData& data) { return data.gyro_; });
     ComputeMeanAndCovDiag(init_imus_, mean_acce, cov_acc_, [](const IMUData& data) { return data.acc_; });
     LOG_INFO("mean acc:{},{},{}", mean_acce[0], mean_acce[1], mean_acce[2]);
@@ -50,13 +51,15 @@ bool StaticImuInit::TryInit() {
     ComputeMeanAndCovDiag(init_imus_, mean_acce, cov_acc_,
                           [this](const IMUData& data) { return data.acc_ + gravity_; });
     LOG_INFO("after add gravity mean acc:{},{},{}", mean_acce[0], mean_acce[1], mean_acce[2]);
-    // 检查IMU噪声
+    // // 检查IMU噪声
     if (cov_gyro_.norm() > options_.max_static_gyro_var) {
+        LOG_INFO("cov_gyro_ :{},{},{}", cov_gyro_[0], cov_gyro_[1], cov_gyro_[2]);
         LOG_ERROR("陀螺仪测量噪声太大:{}, max_static_gyro_var:{}", cov_gyro_.norm(), options_.max_static_gyro_var);
         return false;
     }
 
     if (cov_acc_.norm() > options_.max_static_acc_var) {
+        LOG_INFO("cov_acc_ :{},{},{}", cov_acc_[0], cov_acc_[1], cov_acc_[2]);
         LOG_ERROR("加速度计测量噪声太大:{}, max_static_acc_var:{}", cov_acc_.norm(), options_.max_static_acc_var);
         return false;
     }
@@ -67,9 +70,9 @@ bool StaticImuInit::TryInit() {
     // 施密特正交来对齐重力
     // LOG_INFO("Align Gravity");
     // 这里求出来的fastlio相差-号
-    grad_schmit(mean_acce, R_GtoI);
+    // grad_schmit(mean_acce, R_GtoI);
     // LOG_INFO("R_GtoI:{}", R_GtoI);
-    std::cout << "R_GtoI:\n" << R_GtoI << std::endl;
+    // std::cout << "R_GtoI:\n" << R_GtoI << std::endl;
     init_success_ = true;
     return true;
 }
