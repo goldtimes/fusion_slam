@@ -156,8 +156,8 @@ bool MapBuildNode::SyncPackage(MeasureGroup& sync_package) {
         }
         lidar_pushed = true;
     }
-    LOG_INFO("lidar_begin_time:{},lidar_end_time:{}, lidar_mean_scantime:{}", sync_package.lidar_begin_time,
-             sync_package.lidar_end_time, lidar_mean_scantime);
+    // LOG_INFO("lidar_begin_time:{},lidar_end_time:{}, lidar_mean_scantime:{}", sync_package.lidar_begin_time,
+    //          sync_package.lidar_end_time, lidar_mean_scantime);
     // 处理imu
     if (last_imu_time < sync_package.lidar_end_time) {
         return false;
@@ -172,11 +172,11 @@ bool MapBuildNode::SyncPackage(MeasureGroup& sync_package) {
         sync_package.imu_queue_.push_back(imu_queque_.front());
         imu_queque_.pop_front();
     }
-    LOG_INFO("find imu size:{}", sync_package.imu_queue_.size());
-    if (!sync_package.imu_queue_.empty()) {
-        LOG_INFO("find imu begin time:{}, end_time:{}", sync_package.imu_queue_.front().timestamped_,
-                 sync_package.imu_queue_.back().timestamped_);
-    }
+    // LOG_INFO("find imu size:{}", sync_package.imu_queue_.size());
+    // if (!sync_package.imu_queue_.empty()) {
+    // LOG_INFO("find imu begin time:{}, end_time:{}", sync_package.imu_queue_.front().timestamped_,
+    //          sync_package.imu_queue_.back().timestamped_);
+    // }
     lidar_time_queue_.pop_front();
     lidar_queque_.pop_front();
     lidar_pushed = false;
@@ -191,7 +191,7 @@ void MapBuildNode::Run() {
         if (!SyncPackage(sync_package)) {
             continue;
         }
-        LOG_INFO("SyncPackage Success");
+        // LOG_INFO("SyncPackage Success");
         fastlio_odom_ptr_->mapping(sync_package);
         if (fastlio_odom_ptr_->GetSystemStatus() == SYSTEM_STATUES::INITIALIZE) {
             continue;
@@ -205,10 +205,10 @@ void MapBuildNode::Run() {
         publishOdom(eigen2Odometry(current_state_.rot.toRotationMatrix(), current_state_.pos, config_.local_frame_,
                                    config_.body_frame_, current_time_));
 
-        publishCloud(body_cloud_pub_,
-                     pcl2msg(fastlio_odom_ptr_->cloudUndistortedBody(), config_.body_frame_, current_time_));
-        publishCloud(world_cloud_pub_,
-                     pcl2msg(fastlio_odom_ptr_->GetcCloudWorld(), config_.local_frame_, current_time_));
+        // publishCloud(body_cloud_pub_,
+        //  pcl2msg(fastlio_odom_ptr_->cloudUndistortedBody(), config_.body_frame_, current_time_));
+        // publishCloud(world_cloud_pub_,
+        //  pcl2msg(fastlio_odom_ptr_->GetcCloudWorld(), config_.local_frame_, current_time_));
 
         // publishLocalPath();
     }

@@ -65,9 +65,8 @@ void FastlioOdom::mapping(MeasureGroup& sync_packag) {
     imu_processor_ptr_->PredictAndUndistort(sync_packag, cloud_undistorted_lidar_);
     if (system_status_ == SYSTEM_STATUES::INITIALIZE) {
         // 转换到世界坐标系下的点云
-        cloud_down_world_.reset(new PointCloud);
-        cloud_down_world_ = transformWorld(cloud_undistorted_lidar_);
-        ikdtree_->Build(cloud_down_world_->points);
+        PointCloudPtr cloud_down_world = transformWorld(cloud_undistorted_lidar_);
+        ikdtree_->Build(cloud_down_world->points);
         // 构造ikdtree
         system_status_ = SYSTEM_STATUES::MAPPING;
         return;

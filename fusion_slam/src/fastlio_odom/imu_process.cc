@@ -81,7 +81,7 @@ bool IMUProcessor::TryInit(MeasureGroup& sync_package) {
         state.grav = s2(-mean_acc / mean_acc.norm() * G_m_s2);
     }
     LOG_INFO("gravity:{}", state.grav);
-    state.ba = mean_acc;
+    // state.ba = mean_acc;
     kf_->change_x(state);
     // 初始化协方差
     esekfom::esekf<state_ikfom, PROCESS_NOISE_DOF, input_ikfom>::cov init_P = kf_->get_P();
@@ -141,17 +141,17 @@ void IMUProcessor::PredictAndUndistort(MeasureGroup& sync_package, PointCloudPtr
             continue;
         }
         acc_mean = 0.5 * (head.acc_ + tail.acc_);
-        LOG_INFO("acc_mean:{}", acc_mean.transpose());
+        // LOG_INFO("acc_mean:{}", acc_mean.transpose());
         gyro_mean = 0.5 * (head.gyro_ + tail.gyro_);
         // normalize acc ？
         acc_mean = acc_mean * G_m_s2 / mean_acc.norm();
-        LOG_INFO("norm acc_mean:{}", acc_mean.transpose());
+        // LOG_INFO("norm acc_mean:{}", acc_mean.transpose());
         if (head.timestamped_ < last_lidar_time_end_) {
             dt = tail.timestamped_ - last_lidar_time_end_;
         } else {
             dt = tail.timestamped_ - head.timestamped_;
         }
-        LOG_INFO("DT:{}", dt);
+        // LOG_INFO("DT:{}", dt);
         // 噪声矩阵
         Q_.block<3, 3>(0, 0).diagonal() = gyro_cov_;
         Q_.block<3, 3>(3, 3).diagonal() = acc_cov_;
