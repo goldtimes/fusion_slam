@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-09 23:02:09
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-11 00:53:26
+ * @LastEditTime: 2025-07-12 00:55:33
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/fastlio_odom.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -63,19 +63,21 @@ void FastlioOdom::mapping(MeasureGroup& sync_packag) {
     // imu传播和去畸变
     cloud_undistorted_lidar_.reset(new PointCloud);
     imu_processor_ptr_->PredictAndUndistort(sync_packag, cloud_undistorted_lidar_);
+    // 滤波,这里就不经过体素滤波了
+    cloud_down_lidar_ = cloud_undistorted_lidar_;
     if (system_status_ == SYSTEM_STATUES::INITIALIZE) {
         // 转换到世界坐标系下的点云
-        PointCloudPtr cloud_down_world = transformWorld(cloud_undistorted_lidar_);
+        PointCloudPtr cloud_down_world = transformWorld(cloud_down_lidar_);
         ikdtree_->Build(cloud_down_world->points);
         // 构造ikdtree
         system_status_ = SYSTEM_STATUES::MAPPING;
         return;
     }
-    // trimMap();
-    // // align
-    // double solve_H_time = 0;
-    // kf_->update_iterated_dyn_share_modified(0.001, solve_H_time);
-    // increaseMap();
+    trimMap();
+    // align
+    double solve_H_time = 0;
+    kf_->update_iterated_dyn_share_modified(0.001, solve_H_time);
+    increaseMap();
 }
 void FastlioOdom::trimMap() {
     local_map_.cub_to_rm.clear();

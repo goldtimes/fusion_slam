@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-08 23:14:53
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-11 00:50:07
+ * @LastEditTime: 2025-07-12 00:52:32
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/map_node_build.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -205,10 +205,10 @@ void MapBuildNode::Run() {
         publishOdom(eigen2Odometry(current_state_.rot.toRotationMatrix(), current_state_.pos, config_.local_frame_,
                                    config_.body_frame_, current_time_));
 
-        // publishCloud(body_cloud_pub_,
-        //  pcl2msg(fastlio_odom_ptr_->cloudUndistortedBody(), config_.body_frame_, current_time_));
-        // publishCloud(world_cloud_pub_,
-        //  pcl2msg(fastlio_odom_ptr_->GetcCloudWorld(), config_.local_frame_, current_time_));
+        publishCloud(body_cloud_pub_,
+                     pcl2msg(fastlio_odom_ptr_->cloudUndistortedBody(), config_.body_frame_, current_time_));
+        publishCloud(world_cloud_pub_,
+                     pcl2msg(fastlio_odom_ptr_->GetcCloudWorld(), config_.local_frame_, current_time_));
 
         // publishLocalPath();
     }
