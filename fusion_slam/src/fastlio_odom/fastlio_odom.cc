@@ -72,11 +72,11 @@ void FastlioOdom::mapping(MeasureGroup& sync_packag) {
         system_status_ = SYSTEM_STATUES::MAPPING;
         return;
     }
-    trimMap();
-    // align
-    double solve_H_time = 0;
-    kf_->update_iterated_dyn_share_modified(0.001, solve_H_time);
-    increaseMap();
+    // trimMap();
+    // // align
+    // double solve_H_time = 0;
+    // kf_->update_iterated_dyn_share_modified(0.001, solve_H_time);
+    // increaseMap();
 }
 void FastlioOdom::trimMap() {
     local_map_.cub_to_rm.clear();

@@ -1,5 +1,5 @@
 map_frame: map
-local_frame: local
+local_frame: map
 body_frame: body
 imu_topic: /livox/imu
 livox_topic: /livox/lidar

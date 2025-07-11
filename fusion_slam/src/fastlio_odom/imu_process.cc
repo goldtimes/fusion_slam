@@ -74,14 +74,14 @@ bool IMUProcessor::TryInit(MeasureGroup& sync_package) {
     s2 grav;
     if (config_.align_gravity) {
         // mean_acc = static_imu_init_->GetInitBa();
-        auto rot = Eigen::Quaterniond::FromTwoVectors((-mean_acc).normalized(), Eigen::Vector3d(0.0, 0.0, -1.0));
-        grav = s2(Eigen::Vector3d(0, 0, -G_m_s2));
-        LOG_INFO("state ror:{}", rot.matrix().inverse() * -1);
+        state.rot = Eigen::Quaterniond::FromTwoVectors((-mean_acc).normalized(), Eigen::Vector3d(0.0, 0.0, -1.0));
+        state.grav = s2(Eigen::Vector3d(0, 0, -G_m_s2));
+        LOG_INFO("state ror:{}", state.rot);
     } else {
-        grav = s2(-mean_acc / mean_acc.norm() * G_m_s2);
+        state.grav = s2(-mean_acc / mean_acc.norm() * G_m_s2);
     }
-    LOG_INFO("gravity:{}", grav);
-    state.ba = static_imu_init_->GetInitBa();
+    LOG_INFO("gravity:{}", state.grav);
+    state.ba = mean_acc;
     kf_->change_x(state);
     // 初始化协方差
     esekfom::esekf<state_ikfom, PROCESS_NOISE_DOF, input_ikfom>::cov init_P = kf_->get_P();
@@ -151,6 +151,7 @@ void IMUProcessor::PredictAndUndistort(MeasureGroup& sync_package, PointCloudPtr
         } else {
             dt = tail.timestamped_ - head.timestamped_;
         }
+        LOG_INFO("DT:{}", dt);
         // 噪声矩阵
         Q_.block<3, 3>(0, 0).diagonal() = gyro_cov_;
         Q_.block<3, 3>(3, 3).diagonal() = acc_cov_;
