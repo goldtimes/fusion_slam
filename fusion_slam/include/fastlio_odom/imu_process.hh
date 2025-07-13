@@ -1,3 +1,12 @@
+/*
+ * @Author: lihang 1019825699@qq.com
+ * @Date: 2025-07-10 22:46:01
+ * @LastEditors: lihang 1019825699@qq.com
+ * @LastEditTime: 2025-07-13 23:47:10
+ * @FilePath: /fusion_slam_ws/src/fusion_slam/include/fastlio_odom/imu_process.hh
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 #pragma once
 #include <memory>
 #include "common/common_lib.hh"
@@ -56,7 +65,8 @@ class IMUProcessor {
     std::vector<Pose> undistored_imu_poses;
     IMUData last_imu_data_;
     int init_imu_count;
-    V3D mean_acc, mean_gyro;
+    V3D mean_acc = V3D::Zero();
+    V3D mean_gyro = V3D::Zero();
     bool init_success_ = false;
     // imu来传播的队列
     std::deque<IMUData> imus;

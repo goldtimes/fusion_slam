@@ -71,6 +71,7 @@ void LoopClosure::LoopCheck() {
     // 不符合的回环下标
     if (prefixe_index == -1 || prefixe_index == current_index ||
         current_index - prefixe_index < loop_params.loop_pose_index_thresh) {
+        LOG_INFO("can't find loop closure");
         return;
     }
     // 接下来就是做icp
@@ -93,7 +94,7 @@ void LoopClosure::LoopCheck() {
     float score = icp_->getFitnessScore();
 
     if (!icp_->hasConverged() || score > loop_params.loop_icp_thresh) return;
-    LOG_INFO("Detected LOOP: %d %d %f", prefixe_index, current_index, score);
+    LOG_INFO("Detected LOOP: {} {} {}", prefixe_index, current_index, score);
 
     shared_data_ptr_->loop_history.emplace_back(prefixe_index, current_index);
     loop_found_ = true;
@@ -196,9 +197,14 @@ void LoopClosure::operator()() {
             continue;
         }
         // keypose 为空或者小于阈值
-        if (shared_data_ptr_->key_poses.empty() ||
-            shared_data_ptr_->key_poses.size() < loop_params.loop_pose_search_thresh) {
+        if (shared_data_ptr_->key_poses.empty()) {
             LOG_INFO("key_pose_empty");
+            continue;
+        }
+
+        if (shared_data_ptr_->key_poses.size() < loop_params.loop_pose_search_thresh) {
+            LOG_INFO("key_pose:{} < pose_thresh:{}", shared_data_ptr_->key_poses.size(),
+                     loop_params.loop_pose_search_thresh);
             continue;
         }
         // 没有添加keypose
@@ -221,15 +227,18 @@ void LoopClosure::operator()() {
         AddLoopFactor();
         OptimizeAndUpdate();
     }
-}
+}  // namespace slam
 PointCloudPtr LoopClosure::GetSubmap(const std::vector<Pose6D>& pose_list,
-                                     const std::vector<PointCloudPtr> cloud_historty, int start_index, int cloud_nums) {
+                                     const std::vector<PointCloudPtr>& cloud_historty, int start_index,
+                                     int cloud_nums) {
+    LOG_INFO("cloud_history:{}", cloud_historty.size());
     PointCloudPtr cloud(new PointCloud);
     int max_size = pose_list.size();
     // 取前面和后面的多少帧拼接起来
     int min_index = std::max(0, start_index - cloud_nums);
     int max_index = std::min(max_size - 1, start_index + cloud_nums);
-    for (int i = min_index; i < max_index; ++i) {
+    LOG_INFO("min_index:{}, max_index:{}", min_index, max_index);
+    for (int i = min_index; i <= max_index; ++i) {
         const Pose6D pose = pose_list[i];
         Eigen::Matrix<double, 4, 4> T = Eigen::Matrix<double, 4, 4>::Identity();
         T.block<3, 3>(0, 0) = pose.global_rot;
@@ -238,6 +247,7 @@ PointCloudPtr LoopClosure::GetSubmap(const std::vector<Pose6D>& pose_list,
         pcl::transformPointCloud(*cloud_historty[pose.index], *tmp_cloud, T);
         *cloud += *tmp_cloud;
     }
+    LOG_INFO("cloud_size:{}", cloud->size());
     voxel_filter_->setInputCloud(cloud);
     voxel_filter_->filter(*cloud);
     return cloud;

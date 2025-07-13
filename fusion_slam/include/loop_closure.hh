@@ -101,7 +101,7 @@ class LoopClosure {
     void OptimizeAndUpdate();
     void operator()();
 
-    PointCloudPtr GetSubmap(const std::vector<Pose6D>& pose_list, const std::vector<PointCloudPtr> cloud_historty,
+    PointCloudPtr GetSubmap(const std::vector<Pose6D>& pose_list, const std::vector<PointCloudPtr>& cloud_historty,
                             int start_index, int cloud_nums);
 
     void setShared(std::shared_ptr<SharedData> share_data) {

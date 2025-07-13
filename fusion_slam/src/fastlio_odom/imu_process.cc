@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-09 23:02:09
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-13 21:34:42
+ * @LastEditTime: 2025-07-13 23:53:00
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/imu_process.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -50,7 +50,7 @@ bool IMUProcessor::TryInit(MeasureGroup& sync_package) {
         mean_acc += (imu.acc_ - mean_acc) / init_imu_count;
         mean_gyro += (imu.gyro_ - mean_gyro) / init_imu_count;
     }
-    if (init_imu_count < 200) {
+    if (init_imu_count < 20) {
         init_success_ = false;
         return false;
     };
@@ -113,7 +113,10 @@ void IMUProcessor::PredictAndUndistort(MeasureGroup& sync_package, PointCloudPtr
     const double imu_begin_time = imus.front().timestamped_;
     const double imu_end_time = imus.back().timestamped_;
     undistort_pcl = sync_package.current_lidar;
-    LOG_INFO("undistort before lidar size:{}", undistort_pcl->size());
+    // LOG_INFO("undistort before lidar size:{}", undistort_pcl->size());
+    if (undistort_pcl->empty()) {
+        return;
+    }
     // sort
     std::sort(undistort_pcl->begin(), undistort_pcl->end(),
               [](const PointType& p1, const PointType& p2) { return p1.curvature < p2.curvature; });
