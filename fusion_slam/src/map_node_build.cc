@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-08 23:14:53
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-13 23:50:19
+ * @LastEditTime: 2025-07-14 00:10:46
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/map_node_build.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -218,6 +218,7 @@ void MapBuildNode::Run() {
         current_time_ = sync_package.lidar_end_time;
         current_state_ = fastlio_odom_ptr_->GetCurrentState();
         // 发布tf
+        // odom->map的变换一开始是重合的，但是里程计因为有漂移之后，我们检测到了回环，优化了整个里程计的位姿之后，这个offset_rot,offset_trans就代表了odom->map的偏移，肯定不重合了
         tf_broadcaster_.sendTransform(eigen2Transform(shared_data->offset_rot, shared_data->offset_trans,
                                                       config_.global_frame_, config_.local_frame_, current_time_));
         auto T_body_to_local = eigen2Transform(current_state_.rot.matrix(), current_state_.pos, config_.local_frame_,
@@ -265,6 +266,7 @@ void MapBuildNode::addKeypose() {
         std::lock_guard<std::mutex> lock(shared_data->shared_data_mutex);
         shared_data->key_poses.emplace_back(idx, current_time_, current_state_.rot.toRotationMatrix(),
                                             current_state_.pos);
+        // 未检测到回环的时候这里offset都为0，所以global_path和local_path几乎是重合的
         shared_data->key_poses.back().addOffset(shared_data->offset_rot, shared_data->offset_trans);
         // shared_data_->key_poses.back().gravity = current_state_.get_g();
         shared_data->key_pose_added = true;
