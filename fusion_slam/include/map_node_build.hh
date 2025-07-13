@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-08 23:14:53
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-11 00:39:00
+ * @LastEditTime: 2025-07-13 21:45:09
  * @FilePath: /fusion_slam_ws/src/fusion_slam/include/map_node_build.hh
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -11,11 +11,13 @@
 #include <ros/ros.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <memory>
+#include <thread>
 #include <vector>
 #include "common/common_lib.hh"
 #include "common/logger.hh"
 #include "fastlio_odom/fastlio_odom.hh"
 #include "lidar_process.hh"
+#include "loop_closure.hh"
 #include "ros/publisher.h"
 #include "ros/rate.h"
 
@@ -64,6 +66,18 @@ class MapBuildNode {
         odom_pub_.publish(odom_to_pub);
     }
 
+    Eigen::Vector3d rotate2rpy(Eigen::Matrix3d& rot) {
+        double roll = std::atan2(rot(2, 1), rot(2, 2));
+        double pitch = asin(-rot(2, 0));
+        double yaw = std::atan2(rot(1, 0), rot(0, 0));
+        return Eigen::Vector3d(roll, pitch, yaw);
+    }
+
+    void addKeypose();
+    void publishLocalPath();
+    void publishGlobalPath();
+    void publishLoopMark();
+
    private:
     ros::NodeHandle nh_;
     MapBuildNodeConfig config_;
@@ -77,7 +91,9 @@ class MapBuildNode {
     ros::Publisher odom_pub_;
     ros::Publisher body_cloud_pub_;
     ros::Publisher world_cloud_pub_;
-    ros::Publisher path_pub_;
+    ros::Publisher local_path_pub_;
+    ros::Publisher global_path_pub_;
+    ros::Publisher loop_mark_pub_;
 
     std::deque<PointCloudPtr> lidar_queque_;
     std::deque<double> lidar_time_queue_;
@@ -104,5 +120,12 @@ class MapBuildNode {
     FastlioOdom::FastlioOdomConfig fastlio_odom_config_;
 
     std::mutex mtx;
+
+    // 回环检测 就是开启一个优化线程，接受odom传递过来的位姿信息，以及将点云保存下来
+    // 然后线程不断地check是否有检测到回环，如果检测到回环，将当前位姿的点云拼接起来，并进行icp.如果匹配得分ok,那么就是回环了
+    // 然后进行优化位姿
+    LoopClosure loop_closure_;
+    std::shared_ptr<std::thread> loop_closure_thread_;
+    std::shared_ptr<SharedData> shared_data;
 };
 }  // namespace slam

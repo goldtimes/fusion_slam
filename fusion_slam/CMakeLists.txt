@@ -31,6 +31,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(spdlog REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
+find_package(Boost REQUIRED COMPONENTS serialization thread timer)
 find_package(GTSAM REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
@@ -102,9 +103,12 @@ add_executable(map_node
   src/fastlio_odom/imu_process.cc
   src/static_imu_init.cc
   include/fastlio_odom/ikd-Tree/ikd_Tree.cpp
+  src/loop_closure.cc
+
 )
 target_link_libraries(map_node
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
   spdlog::spdlog
+  gtsam
 )

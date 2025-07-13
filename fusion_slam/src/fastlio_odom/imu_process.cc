@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-09 23:02:09
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-10 23:53:56
+ * @LastEditTime: 2025-07-13 21:34:42
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/imu_process.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -102,11 +102,6 @@ bool IMUProcessor::TryInit(MeasureGroup& sync_package) {
     last_lidar_time_end_ = sync_package.lidar_end_time;
     init_success_ = true;
     return true;
-    //     return true;
-    // } else {
-    //     init_success_ = false;
-    //     return false;
-    // }
 }
 
 void IMUProcessor::PredictAndUndistort(MeasureGroup& sync_package, PointCloudPtr& undistort_pcl) {
@@ -162,7 +157,7 @@ void IMUProcessor::PredictAndUndistort(MeasureGroup& sync_package, PointCloudPtr
         // 预测
         kf_->predict(dt, Q_, input);
         current_state = kf_->get_x();
-        LOG_INFO("current_state:{}", current_state);
+        // LOG_INFO("current_state:{}", current_state);
         last_gyro = gyro_mean - current_state.bg;
         last_acc = current_state.rot.toRotationMatrix() * (acc_mean - current_state.ba);
         last_acc += current_state.grav.get_vect();

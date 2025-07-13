@@ -2,15 +2,24 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-08 23:14:53
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-12 00:52:32
+ * @LastEditTime: 2025-07-13 21:49:06
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/map_node_build.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 #include "map_node_build.hh"
+#include <nav_msgs/Path.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <thread>
 #include "common/common_lib.hh"
 #include "fastlio_odom/fastlio_odom.hh"
 #include "lidar_process.hh"
+#include "loop_closure.hh"
+#include "nav_msgs/Odometry.h"
 #include "ros/init.h"
 #include "sensor_msgs/PointCloud2.h"
 
@@ -21,6 +30,13 @@ MapBuildNode::MapBuildNode(const ros::NodeHandle& nh) : nh_(nh) {
     init_sub_pub();
     lidar_process_ptr_ = std::make_shared<LidarProcess>(lidar_process_config_);
     fastlio_odom_ptr_ = std::make_shared<FastlioOdom>(fastlio_odom_config_);
+
+    loop_closure_.setRate(loop_rate_);
+    shared_data = std::make_shared<SharedData>();
+    loop_closure_.setShared(shared_data);
+    loop_closure_.Init();
+    // 创建线程
+    loop_closure_thread_ = std::make_shared<std::thread>(std::ref(loop_closure_));
     LOG_INFO("MapBuildNode initied.....");
 }
 
@@ -70,7 +86,7 @@ void MapBuildNode::load_params() {
     lidar_process_config_.N_SCAN = 6;
     lidar_process_config_.blind = 0.2;
     lidar_process_config_.point_filter_num = 2;
-    nh_.param<std::string>("map_frame", config_.global_frame_, "map");
+    nh_.param<std::string>("global_frame", config_.global_frame_, "map");
     nh_.param<std::string>("local_frame", config_.local_frame_, "local");
     nh_.param<std::string>("body_frame", config_.body_frame_, "body");
     nh_.param<std::string>("imu_topic", config_.imu_topic_, "/livox/imu");
@@ -103,16 +119,16 @@ void MapBuildNode::load_params() {
     config_.imu_ext_pos << imu_ext_pose[0], imu_ext_pose[1], imu_ext_pose[2];
     std::cout << "imu_ext_rot: \n" << config_.imu_ext_rot << std::endl;
     std::cout << "imu_ext_pos: \n" << config_.imu_ext_pos.transpose() << std::endl;
-    // nh_.param<bool>("loop_closure/activate", loop_closure_.mutableParams().activate, true);
-    // nh_.param<double>("loop_closure/rad_thresh", loop_closure_.mutableParams().rad_thresh, 0.4);
-    // nh_.param<double>("loop_closure/dist_thresh", loop_closure_.mutableParams().dist_thresh, 2.5);
-    // nh_.param<double>("loop_closure/time_thresh", loop_closure_.mutableParams().time_thresh, 30.0);
-    // nh_.param<double>("loop_closure/loop_pose_search_radius", loop_closure_.mutableParams().loop_pose_search_radius,
-    //                   10.0);
-    // nh_.param<int>("loop_closure/loop_pose_index_thresh", loop_closure_.mutableParams().loop_pose_index_thresh, 5);
-    // nh_.param<double>("loop_closure/submap_resolution", loop_closure_.mutableParams().submap_resolution, 0.2);
-    // nh_.param<int>("loop_closure/submap_search_num", loop_closure_.mutableParams().submap_search_num, 20);
-    // nh_.param<double>("loop_closure/loop_icp_thresh", loop_closure_.mutableParams().loop_icp_thresh, 0.3);
+    nh_.param<bool>("loop_closure/activate", loop_closure_.mutableParams().active, true);
+    nh_.param<double>("loop_closure/rad_thresh", loop_closure_.mutableParams().rad_thresh, 0.4);
+    nh_.param<double>("loop_closure/dist_thresh", loop_closure_.mutableParams().dist_thresh, 2.5);
+    nh_.param<double>("loop_closure/time_thresh", loop_closure_.mutableParams().time_thresh, 30.0);
+    nh_.param<double>("loop_closure/loop_pose_search_radius", loop_closure_.mutableParams().loop_pose_search_thresh,
+                      10.0);
+    nh_.param<int>("loop_closure/loop_pose_index_thresh", loop_closure_.mutableParams().loop_pose_index_thresh, 5);
+    nh_.param<double>("loop_closure/submap_resolution", loop_closure_.mutableParams().submap_resolution, 0.2);
+    nh_.param<int>("loop_closure/submap_search_num", loop_closure_.mutableParams().submap_search_num, 20);
+    nh_.param<double>("loop_closure/loop_icp_thresh", loop_closure_.mutableParams().loop_icp_thresh, 0.3);
 
     fastlio_odom_config_.move_thresh = config_.move_thresh;
     fastlio_odom_config_.align_gravity = config_.align_gravity;
@@ -120,7 +136,6 @@ void MapBuildNode::load_params() {
     fastlio_odom_config_.resolution = config_.map_resolution;
     fastlio_odom_config_.imu_ext_rot = config_.imu_ext_rot;
     fastlio_odom_config_.imu_ext_pos = config_.imu_ext_pos;
-    // fastlio_odom_config_.esikf_max_iteration = config_.
 }
 void MapBuildNode::init_sub_pub() {
     imu_sub_ = nh_.subscribe(config_.imu_topic_, 200, &MapBuildNode::imu_callback, this);
@@ -129,6 +144,9 @@ void MapBuildNode::init_sub_pub() {
                      : nh_.subscribe(config_.lidar_topic_, 10, &MapBuildNode::standard_pcl_callback, this);
     body_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/lio_node/body_cloud", 10);
     world_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/lio_node/world_cloud", 10);
+    odom_pub_ = nh_.advertise<nav_msgs::Odometry>("/lio_node/odom", 10);
+    local_path_pub_ = nh_.advertise<nav_msgs::Path>("local_path", 1000);
+    global_path_pub_ = nh_.advertise<nav_msgs::Path>("global_path", 1000);
 }
 
 bool MapBuildNode::SyncPackage(MeasureGroup& sync_package) {
@@ -198,6 +216,9 @@ void MapBuildNode::Run() {
         }
         current_time_ = sync_package.lidar_end_time;
         current_state_ = fastlio_odom_ptr_->GetCurrentState();
+        // 发布tf
+        tf_broadcaster_.sendTransform(eigen2Transform(shared_data->offset_rot, shared_data->offset_trans,
+                                                      config_.global_frame_, config_.local_frame_, current_time_));
         auto T_body_to_local = eigen2Transform(current_state_.rot.matrix(), current_state_.pos, config_.local_frame_,
                                                config_.body_frame_, sync_package.lidar_end_time);
         tf_broadcaster_.sendTransform(T_body_to_local);
@@ -209,8 +230,149 @@ void MapBuildNode::Run() {
                      pcl2msg(fastlio_odom_ptr_->cloudUndistortedBody(), config_.body_frame_, current_time_));
         publishCloud(world_cloud_pub_,
                      pcl2msg(fastlio_odom_ptr_->GetcCloudWorld(), config_.local_frame_, current_time_));
-
-        // publishLocalPath();
+        // 接下来需要处理关键位姿，将关键位姿发布给闭环检测线程
+        addKeypose();
+        publishLocalPath();
+        publishGlobalPath();
+        publishLoopMark();
     }
+    loop_closure_thread_->join();
+    std::cout << "MAPPING NODE IS DOWN!" << std::endl;
+}
+
+void MapBuildNode::addKeypose() {
+    int idx = shared_data->key_poses.size();
+    if (shared_data->key_poses.empty()) {
+        std::lock_guard<std::mutex> lck(shared_data->shared_data_mutex);
+        shared_data->key_poses.emplace_back(idx, current_time_, current_state_.rot.toRotationMatrix(),
+                                            current_state_.pos);
+        shared_data->key_poses.back().addOffset(shared_data->offset_rot, shared_data->offset_trans);
+        shared_data->key_pose_added = true;
+        // 存储世界坐标系下的点云
+        shared_data->cloud_historys.push_back(fastlio_odom_ptr_->cloudUndistortedBody());
+        return;
+    }
+    // 关键帧的判断
+    Pose6D& last_pose = shared_data->key_poses.back();
+    M3D delta_rot = last_pose.local_rot.transpose() * current_state_.rot.toRotationMatrix();
+    V3D delta_trans = last_pose.local_rot.transpose() * (current_state_.pos - last_pose.local_pos);
+    V3D rpy = rotate2rpy(delta_rot);
+    if (delta_trans.norm() > loop_closure_.mutableParams().dist_thresh ||
+        std::abs(rpy(0)) > loop_closure_.mutableParams().rad_thresh ||
+        std::abs(rpy(1)) > loop_closure_.mutableParams().rad_thresh ||
+        std::abs(rpy(2)) > loop_closure_.mutableParams().rad_thresh) {
+        std::lock_guard<std::mutex> lock(shared_data->shared_data_mutex);
+        shared_data->key_poses.emplace_back(idx, current_time_, current_state_.rot.toRotationMatrix(),
+                                            current_state_.pos);
+        shared_data->key_poses.back().addOffset(shared_data->offset_rot, shared_data->offset_trans);
+        // shared_data_->key_poses.back().gravity = current_state_.get_g();
+        shared_data->key_pose_added = true;
+        shared_data->cloud_historys.push_back(fastlio_odom_ptr_->cloudUndistortedBody());
+    }
+    LOG_INFO("key pose size: {}", shared_data->key_poses.size());
+}
+
+void MapBuildNode::publishLocalPath() {
+    if (local_path_pub_.getNumSubscribers() == 0) return;
+
+    if (shared_data->key_poses.empty()) return;
+
+    nav_msgs::Path path;
+    path.header.frame_id = "map";
+    path.header.stamp = ros::Time().fromSec(current_time_);
+    for (Pose6D& p : shared_data->key_poses) {
+        geometry_msgs::PoseStamped pose;
+        pose.header.frame_id = "map";
+        pose.header.stamp = ros::Time().fromSec(current_time_);
+        pose.pose.position.x = p.local_pos(0);
+        pose.pose.position.y = p.local_pos(1);
+        pose.pose.position.z = p.local_pos(2);
+        Eigen::Quaterniond q(p.local_rot);
+        pose.pose.orientation.x = q.x();
+        pose.pose.orientation.y = q.y();
+        pose.pose.orientation.z = q.z();
+        pose.pose.orientation.w = q.w();
+        path.poses.push_back(pose);
+    }
+    local_path_pub_.publish(path);
+}
+
+void MapBuildNode::publishGlobalPath() {
+    if (global_path_pub_.getNumSubscribers() == 0) return;
+
+    if (shared_data->key_poses.empty()) return;
+    nav_msgs::Path path;
+    path.header.frame_id = "map";
+    path.header.stamp = ros::Time().fromSec(current_time_);
+    for (Pose6D& p : shared_data->key_poses) {
+        geometry_msgs::PoseStamped pose;
+        pose.header.frame_id = "map";
+        pose.header.stamp = ros::Time().fromSec(current_time_);
+        pose.pose.position.x = p.global_pos(0);
+        pose.pose.position.y = p.global_pos(1);
+        pose.pose.position.z = p.global_pos(2);
+        Eigen::Quaterniond q(p.global_rot);
+        pose.pose.orientation.x = q.x();
+        pose.pose.orientation.y = q.y();
+        pose.pose.orientation.z = q.z();
+        pose.pose.orientation.w = q.w();
+        path.poses.push_back(pose);
+    }
+    global_path_pub_.publish(path);
+}
+void MapBuildNode::publishLoopMark() {
+    if (loop_mark_pub_.getNumSubscribers() == 0) return;
+    if (shared_data->loop_history.empty()) return;
+    visualization_msgs::MarkerArray marker_array;
+    visualization_msgs::Marker nodes_marker;
+
+    nodes_marker.header.frame_id = "map";
+    nodes_marker.header.stamp = ros::Time().fromSec(current_time_);
+    nodes_marker.ns = "loop_nodes";
+    nodes_marker.id = 0;
+    nodes_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+    nodes_marker.action = visualization_msgs::Marker::ADD;
+    nodes_marker.pose.orientation.w = 1.0;
+    nodes_marker.scale.x = 0.3;
+    nodes_marker.scale.y = 0.3;
+    nodes_marker.scale.z = 0.3;
+    nodes_marker.color.r = 1.0;
+    nodes_marker.color.g = 0.8;
+    nodes_marker.color.b = 0.0;
+    nodes_marker.color.a = 1.0;
+
+    visualization_msgs::Marker edges_marker;
+    edges_marker.header.frame_id = "map";
+    edges_marker.header.stamp = ros::Time().fromSec(current_time_);
+    edges_marker.ns = "loop_edges";
+    edges_marker.id = 1;
+    edges_marker.type = visualization_msgs::Marker::LINE_LIST;
+    edges_marker.action = visualization_msgs::Marker::ADD;
+    edges_marker.pose.orientation.w = 1.0;
+    edges_marker.scale.x = 0.1;
+
+    edges_marker.color.r = 0.0;
+    edges_marker.color.g = 0.8;
+    edges_marker.color.b = 0.0;
+    edges_marker.color.a = 1.0;
+    for (auto& p : shared_data->loop_history) {
+        Pose6D& p1 = shared_data->key_poses[p.first];
+        Pose6D& p2 = shared_data->key_poses[p.second];
+        geometry_msgs::Point point1;
+        point1.x = p1.global_pos(0);
+        point1.y = p1.global_pos(1);
+        point1.z = p1.global_pos(2);
+        geometry_msgs::Point point2;
+        point2.x = p2.global_pos(0);
+        point2.y = p2.global_pos(1);
+        point2.z = p2.global_pos(2);
+        nodes_marker.points.push_back(point1);
+        nodes_marker.points.push_back(point2);
+        edges_marker.points.push_back(point1);
+        edges_marker.points.push_back(point2);
+    }
+    marker_array.markers.push_back(nodes_marker);
+    marker_array.markers.push_back(edges_marker);
+    loop_mark_pub_.publish(marker_array);
 }
 }  // namespace slam
