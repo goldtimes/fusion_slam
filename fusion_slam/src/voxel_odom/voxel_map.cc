@@ -534,5 +534,67 @@ void BuildResidualListOMP(const std::unordered_map<VOXEL_KEY, OctoTree*>& voxel_
 void build_single_residual(const PointWithCov& pv, const OctoTree* current_octo, const int current_layer,
                            const int max_layer, const double sigma_num, bool& is_success, double& prob,
                            ptpl& single_ptpl) {
+    // 构建点面残差
+    double radius_k = 3;
+    V3D p_w = pv.point_wolrd;
+    // 如果当前节点拟合平面成功，则直接在这一层构建残差
+    if (current_octo->plane_ptr_->is_plane) {
+        Plane& plane = *current_octo->plane_ptr_;
+        // 计算点到平面的距离
+        float dis_to_plane =
+            fabs(plane.normal(0) * p_w(0) + plane.normal(1) * p_w(1) + plane.normal(2) * p_w(2) + plane.d);
+        // 计算点到平面中心簇的距离
+        float dis_to_center = (plane.center(0) - p_w(0)) * (plane.center(0) - p_w(0)) +
+                              (plane.center(1) - p_w(1)) * (plane.center(1) - p_w(1)) +
+                              (plane.center(2) - p_w(2)) * (plane.center(2) - p_w(2));
+        // HACK 差值是 点在平面上投影 与 平面点簇中心的距离
+        // HACK 目的是不要用距离平面点簇太远的点来做残差，因为估计的平面在这些远点的位置可能不满足平面假设了
+        // HACK 因为将点划分进voxel的时候只用了第一层voxel 这个voxel可能比较大 遍历到的这个子voxel距离点可能还比较远
+        float range_dist = sqrt(dis_to_center - dis_to_plane * dis_to_plane);  // 三角形的底边
+        // 选取底边不要那么远的点
+        if (range_dist <= radius_k * plane.radius) {
+            // 计算点面距离的方差
+            Eigen::Matrix<double, 1, 6> J_np;
+            J_np.block<1, 3>(0, 0) = p_w - plane.center;
+            J_np.block<1, 3>(0, 3) = -plane.normal;
+            double sigma_l = J_np * plane.plane_cov * J_np.transpose();
+            sigma_l += plane.normal.transpose() * pv.cov * plane.normal;
+            if (dis_to_plane < sigma_num * sqrt(sigma_l)) {
+                is_success = true;
+                double this_prob = 1.0 / sqrt(sigma_l) * exp(-0.5 * dis_to_plane * dis_to_plane / sigma_l);
+                if (this_prob > prob) {
+                    prob = this_prob;
+                    single_ptpl.point = pv.point;
+                    single_ptpl.point_world = pv.point_wolrd;
+                    single_ptpl.plane_cov = plane.plane_cov;
+                    single_ptpl.nomral = plane.normal;
+                    single_ptpl.center = plane.center;
+                    single_ptpl.d = plane.d;
+                    single_ptpl.layer = current_layer;
+                    single_ptpl.cov_lidar = pv.cov_lidar;
+                }
+                return;
+            } else {
+                return;
+            }
+        } else {
+            return;
+        }
+    } else {
+        // 往层接更深的地方寻找平面
+        if (current_layer < max_layer) {
+            for (size_t leafnum = 0; leafnum < 8; ++leafnum) {
+                if (current_octo->leaves_[leafnum] != nullptr) {
+                    OctoTree* leaf_octo_tree = current_octo->leaves_[leafnum];
+                    // 递归
+                    build_single_residual(pv, leaf_octo_tree, current_layer + 1, max_layer, sigma_num, is_success, prob,
+                                          single_ptpl);
+                }
+            }
+            return;
+        } else {
+            return;
+        }
+    }
 }
 }  // namespace slam
