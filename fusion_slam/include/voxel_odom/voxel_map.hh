@@ -29,22 +29,28 @@ class VOXEL_KEY {
 struct PointWithCov {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     V3D point;
+    V3D point_wolrd;
     M3D cov;
+    M3D cov_lidar;
 };
 
 // plane的定义
 struct Plane {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     V3D center;  // 平面中心
-    V3D nomral;  // 法向量
-    V3D x_nomral;
-    V3D y_nomral;
-    M3D convariance;
+    V3D normal;
+    ;  // 法向量
+    V3D x_normal;
+    V3D y_normal;
+    M3D covariance;
     Mat6d plane_cov;
+    float min_eigen_value = 1;
+    float mid_eigen_value = 1;
+    float max_eigen_value = 1;
     float radius = 0;  // 在某个半径内
     int id;            // 平面id
     float d = 0;
-    int point_size = 0;  //
+    int points_size = 0;  //
     bool is_plane = false;
     bool is_init = false;
     // is_update and last_update_points_size are only for publish plane
@@ -97,6 +103,9 @@ class OctoTree {
     }
 
     void init_octo_tree();
+    void cut_octor_tree();
+    void init_plane(const std::vector<PointWithCov>& input_points, Plane* plane);
+    void update_plane(const std::vector<PointWithCov>& input_points, Plane* plane);
     void UpdateOctoTree(const PointWithCov& pv);
 
    public:
@@ -129,6 +138,12 @@ void updateVoxelMapOMP(const std::vector<PointWithCov>& input_points, const floa
                        const std::vector<int>& layer_point_size, const int max_points_size,
                        const int max_cov_points_size, const float plane_thresh,
                        std::unordered_map<VOXEL_KEY, OctoTree*>& feat_map);
+void BuildResidualListOMP(const std::unordered_map<VOXEL_KEY, OctoTree*>& voxel_map, const double voxel_size,
+                          const double sigma_num, const int max_layer, const std::vector<PointWithCov>& pv_list,
+                          std::vector<ptpl>& ptpl_list, std::vector<V3D>& non_match);
+void build_single_residual(const PointWithCov& pv, const OctoTree* current_octo, const int current_layer,
+                           const int max_layer, const double sigma_num, bool& is_success, double& prob,
+                           ptpl& single_ptpl);
 }  // namespace slam
 
 namespace std {
