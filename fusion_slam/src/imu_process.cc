@@ -2,12 +2,12 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-09 23:02:09
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-13 23:53:00
+ * @LastEditTime: 2025-07-15 23:47:05
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/fastlio_odom/imu_process.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
-#include "fastlio_odom/imu_process.hh"
+#include "imu_process.hh"
 #include <pcl/io/pcd_io.h>
 #include "common/common_lib.hh"
 #include "common/eigen_type.hh"

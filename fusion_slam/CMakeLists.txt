@@ -100,7 +100,7 @@ add_executable(map_node
   src/common/common_lib.cc
   src/lidar_process.cc
   src/fastlio_odom/fastlio_odom.cc
-  src/fastlio_odom/imu_process.cc
+  src/imu_process.cc
   src/static_imu_init.cc
   include/fastlio_odom/ikd-Tree/ikd_Tree.cpp
   src/loop_closure.cc
