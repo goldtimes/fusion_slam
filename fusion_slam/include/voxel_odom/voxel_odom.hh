@@ -112,5 +112,9 @@ class VoxelOdom {
     PointCloudPtr cloud_down_lidar_;
     PointCloudPtr cloud_undistorted_lidar_;
     PointCloudPtr cloud_down_world_;
+
+    PointCloudPtr feats_with_correspondence;
+    double total_residual = 0;
+    double res_mean_last = 0.0;
 };
 }  // namespace slam

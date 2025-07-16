@@ -43,6 +43,7 @@ VoxelOdom::VoxelOdom(const VoxelOdomConfig& config) {
     cloud_down_lidar_.reset(new PointCloud);
     cloud_undistorted_lidar_.reset(new PointCloud);
     cloud_down_world_.reset(new PointCloud);
+    feats_with_correspondence.reset(new PointCloud);
 }
 
 void VoxelOdom::mapping(MeasureGroup& sync_packag) {
@@ -187,6 +188,92 @@ M3D VoxelOdom::transformLidarCovToWorld(const V3D& point_lidar, const M3D& cov_l
 }
 
 void VoxelOdom::sharedUpdateFunc(state_ikfom& state, esekfom::dyn_share_datastruct<double>& ekfom_data) {
+    feats_with_correspondence->clear();
+    total_residual = 0.0;
+    // 迭代卡尔曼滤波，根据最新的位姿来讲点云转到世界坐标系
+    std::vector<PointWithCov> pv_list;
+    PointCloudPtr cloud_world(new PointCloud);
+    cloud_world = transformWorld(cloud_down_lidar_);
+    LOG_INFO("[Voxel Align] cloud size:{}", cloud_world->size());
+    pv_list.resize(cloud_world->size());
+    for (size_t i = 0; i < cloud_down_lidar_->size(); ++i) {
+        PointWithCov pv;
+        V3D point_lidar(cloud_down_world_->points[i].x, cloud_down_world_->points[i].y, cloud_down_world_->points[i].z);
+        V3D point_world(cloud_world->points[i].x, cloud_world->points[i].y, cloud_world->points[i].z);
+        M3D point_lidar_var = vars_cloud_[i];
+        M3D point_world_var = transformLidarCovToWorld(point_lidar, point_lidar);
+        pv.cov_lidar = point_lidar_var;
+        pv.cov = point_world_var;
+        pv_list[i] = pv;
+    }
+    // 构建残差
+    auto match_start = std::chrono::high_resolution_clock::now();
+    std::vector<ptpl> ptpl_list;
+    std::vector<V3D> non_match_list;
+    BuildResidualListOMP(voxel_map_, params.voxel_size, 3.0, params.max_layer, pv_list, ptpl_list, non_match_list);
+    auto match_end = std::chrono::high_resolution_clock::now();
+    // 接下里就是填充观测矩阵
+    auto effct_feat_num = ptpl_list.size();
+    if (effct_feat_num < 5) {
+        ekfom_data.valid = false;
+        LOG_INFO("No Effective Points");
+        return;
+    }
+    // 找到配准的点数，以及对位姿和外参的更新12维
+    ekfom_data.h_x = Eigen::MatrixXd::Zero(effct_feat_num, 12);
+    // 残差
+    ekfom_data.h.resize(effct_feat_num);
+    ekfom_data.R.resize(effct_feat_num, 1);
+#ifdef MP_EN
+    omp_set_num_threads(MP_PROC_NUM);
+#pragma omp parallel for
+#endif
+    for (int i = 0; i < effct_feat_num; ++i) {
+        V3D point_lidar = ptpl_list[i].point;
+        M3D point_lidar_hat;
+        point_lidar_hat << SKEW_SYM_MATRX(point_lidar);
+        V3D point_lidar_body;
+        point_lidar_body = state.offset_R_L_I * point_lidar + state.offset_T_L_I;
+        M3D point_body_hat;
+        point_body_hat << SKEW_SYM_MATRX(point_lidar_body);
+        V3D normal_vec(ptpl_list[i].normal);
+        // 雅可比矩阵
+        V3D C(state.rot.conjugate() * normal_vec);
+        V3D A(point_lidar_hat * C);
+        if (params.extrinsic_est_en) {
+            V3D B(point_lidar_hat * state.offset_R_L_I.conjugate() * C);
+            ekfom_data.h_x.block<1, 12>(i, 0) << normal_vec.x(), normal_vec.y(), normal_vec.z(), VEC_FROM_ARRAY(A),
+                VEC_FROM_ARRAY(B), VEC_FROM_ARRAY(C);
+        } else {
+            ekfom_data.h_x.block<1, 12>(i, 0) << normal_vec.x(), normal_vec.y(), normal_vec.z(), VEC_FROM_ARRAY(A), 0,
+                0, 0, 0, 0, 0;
+        }
+        // 点到平面的距离
+        float pd2 = normal_vec.x() * ptpl_list[i].point_world.x() + normal_vec.y() * ptpl_list[i].point_world.y() +
+                    normal_vec.z() * ptpl_list[i].point_world.z() + ptpl_list[i].d;
+        ekfom_data.h(i) = -pd2;
+        V3D point_world = ptpl_list[i].point_world;
+        // /*** get the normal vector of closest surface/corner ***/
+        Eigen::Matrix<double, 1, 6> J_nq;
+        J_nq.block<1, 3>(0, 0) = point_world - ptpl_list[i].center;
+        J_nq.block<1, 3>(0, 3) = -ptpl_list[i].normal;
+        double sigma_l = J_nq * ptpl_list[i].plane_cov * J_nq.transpose();
+
+        // M3D cov_lidar = calcBodyCov(ptpl_list[i].point, ranging_cov, angle_cov);
+        M3D cov_lidar = ptpl_list[i].cov_lidar;
+        M3D R_cov_Rt =
+            state.rot * state.offset_R_L_I * cov_lidar * state.offset_R_L_I.conjugate() * state.rot.conjugate();
+        // HACK 1. 因为是标量 所以求逆直接用1除
+        // HACK 2. 不同分量的方差用加法来合成 因为公式(12)中的Sigma是对角阵，逐元素运算之后就是对角线上的项目相加
+        double R_inv = 1.0 / (sigma_l + normal_vec.transpose() * R_cov_Rt * normal_vec);
+
+        // 计算测量方差R并赋值 目前暂时使用固定值
+        // ekfom_data.R(i) = 1.0 / LASER_POINT_COV;
+        ekfom_data.R(i) = R_inv;
+    }
+
+    res_mean_last = total_residual / effct_feat_num;
+    LOG_INFO("total_residual:{}, res_mean_last:{}", total_residual, res_mean_last);
 }
 
 PointCloudPtr VoxelOdom::transformWorld(const PointCloudPtr& cloud_in) {

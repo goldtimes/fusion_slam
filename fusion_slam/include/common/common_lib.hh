@@ -19,6 +19,7 @@
 #include "sensors/lidar.hh"
 
 #define SKEW_SYM_MATRX(v) 0.0, -v[2], v[1], v[2], 0.0, -v[0], -v[1], v[0], 0.0
+#define VEC_FROM_ARRAY(v) v[0], v[1], v[2]
 
 namespace slam {
 

@@ -567,7 +567,7 @@ void build_single_residual(const PointWithCov& pv, const OctoTree* current_octo,
                     single_ptpl.point = pv.point;
                     single_ptpl.point_world = pv.point_wolrd;
                     single_ptpl.plane_cov = plane.plane_cov;
-                    single_ptpl.nomral = plane.normal;
+                    single_ptpl.normal = plane.normal;
                     single_ptpl.center = plane.center;
                     single_ptpl.d = plane.d;
                     single_ptpl.layer = current_layer;

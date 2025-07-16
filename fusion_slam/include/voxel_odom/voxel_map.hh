@@ -64,7 +64,7 @@ struct ptpl {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     V3D point;        // lidar坐标系下的点
     V3D point_world;  // 世界坐标下的点
-    V3D nomral;       // 平面法向量
+    V3D normal;       // 平面法向量
     V3D center;       // 平面中心
     Mat6d plane_cov;
     double d;  // 点到平面的距离
