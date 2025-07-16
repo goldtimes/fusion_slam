@@ -362,12 +362,12 @@ void buildVoxelMap(const std::vector<PointWithCov>& input_points, const float vo
         VOXEL_KEY position(static_cast<int64_t>(loc_xyz[0]), static_cast<int64_t>(loc_xyz[1]),
                            static_cast<int64_t>(loc_xyz[2]));
         auto iter = feat_map.find(position);
-        // 不存在该体素
-        if (iter == feat_map.end()) {
+        // 存在该体素的情况下
+        if (iter != feat_map.end()) {
             feat_map[position]->temp_points_.push_back(p_v);
             feat_map[position]->new_points_num_++;
         } else {
-            // 创建octotree
+            // 否则 创建octotree
             OctoTree* octo_tree =
                 new OctoTree(max_layer, 0, layer_point_size, max_points_size, max_cov_points_size, plane_thresh);
             // 设置八叉树相关的变量

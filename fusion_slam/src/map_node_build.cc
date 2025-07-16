@@ -269,7 +269,11 @@ void MapBuildNode::addKeypose() {
         shared_data->key_poses.back().addOffset(shared_data->offset_rot, shared_data->offset_trans);
         shared_data->key_pose_added = true;
         // 存储世界坐标系下的点云
-        shared_data->cloud_historys.push_back(fastlio_odom_ptr_->cloudUndistortedBody());
+        if (!config_.use_voxel_map) {
+            shared_data->cloud_historys.push_back(fastlio_odom_ptr_->cloudUndistortedBody());
+        } else {
+            shared_data->cloud_historys.push_back(voxel_odom_ptr_->cloudUndistortedBody());
+        }
         return;
     }
     // 关键帧的判断
@@ -288,7 +292,11 @@ void MapBuildNode::addKeypose() {
         shared_data->key_poses.back().addOffset(shared_data->offset_rot, shared_data->offset_trans);
         // shared_data_->key_poses.back().gravity = current_state_.get_g();
         shared_data->key_pose_added = true;
-        shared_data->cloud_historys.push_back(fastlio_odom_ptr_->cloudUndistortedBody());
+        if (!config_.use_voxel_map) {
+            shared_data->cloud_historys.push_back(fastlio_odom_ptr_->cloudUndistortedBody());
+        } else {
+            shared_data->cloud_historys.push_back(voxel_odom_ptr_->cloudUndistortedBody());
+        }
     }
     LOG_INFO("key pose size: {}", shared_data->key_poses.size());
 }
