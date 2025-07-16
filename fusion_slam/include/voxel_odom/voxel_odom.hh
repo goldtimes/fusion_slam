@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-15 23:15:09
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-16 00:25:30
+ * @LastEditTime: 2025-07-17 00:32:49
  * @FilePath: /fusion_slam_ws/src/fusion_slam/include/voxel_odom/voxel_odom.hh
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -35,7 +35,7 @@ class VoxelOdom {
         double scan_resolution = 0.1;
         int max_layer = 5;
         double voxel_size = 0.5;
-        std::vector<int> update_size_threshes = std::vector<int>{20, 10, 5, 5, 5};
+        std::vector<int> update_size_threshes = std::vector<int>{5, 5, 5, 5, 5};
         int imu_init_num = 20;
         bool extrinsic_est_en = false;
         bool align_gravity = false;

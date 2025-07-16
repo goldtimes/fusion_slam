@@ -107,6 +107,7 @@ void OctoTree::init_plane(const std::vector<PointWithCov>& input_points, Plane* 
     }
     // 平面法向量
     plane->normal << evecs.real()(0, evalsMin), evecs.real()(1, evalsMin), evecs.real()(2, evalsMin);
+    // std::cout << "normal:" << plane->normal << std::endl;
     // y轴的特征值
     plane->y_normal << evecs.real()(0, evalsMid), evecs.real()(1, evalsMid), evecs.real()(2, evalsMid);
     // x轴的特征值

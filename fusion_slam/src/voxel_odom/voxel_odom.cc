@@ -2,7 +2,7 @@
  * @Author: lihang 1019825699@qq.com
  * @Date: 2025-07-15 23:13:59
  * @LastEditors: lihang 1019825699@qq.com
- * @LastEditTime: 2025-07-16 00:47:59
+ * @LastEditTime: 2025-07-17 00:48:20
  * @FilePath: /fusion_slam_ws/src/fusion_slam/src/voxel_odom/voxel_odom.cc
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
  * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
@@ -71,7 +71,7 @@ void VoxelOdom::mapping(MeasureGroup& sync_packag) {
                             cloud_down_lidar_->points[i].z);
             V3D point_world(cloud_down_world_->points[i].x, cloud_down_world_->points[i].y,
                             cloud_down_world_->points[i].z);
-            pv.point = point_lidar;
+            pv.point = point_world;
             pv.point_wolrd = point_world;
             // 防止为0
             if (point_lidar[2] == 0.0) {
@@ -125,7 +125,7 @@ void VoxelOdom::mapping(MeasureGroup& sync_packag) {
 
         M3D point_lidar_cov = vars_cloud_[i];
         M3D point_world_cov = transformLidarCovToWorld(point_lidar, point_lidar_cov);
-        pv.point = point_lidar;
+        pv.point = point_wolrd;
         pv.point_wolrd = point_wolrd;
         pv.cov_lidar = point_lidar_cov;
         pv.cov = point_world_cov;
@@ -204,10 +204,12 @@ void VoxelOdom::sharedUpdateFunc(state_ikfom& state, esekfom::dyn_share_datastru
     pv_list.resize(cloud_world->size());
     for (size_t i = 0; i < cloud_down_lidar_->size(); ++i) {
         PointWithCov pv;
-        V3D point_lidar(cloud_down_world_->points[i].x, cloud_down_world_->points[i].y, cloud_down_world_->points[i].z);
+        V3D point_lidar(cloud_down_lidar_->points[i].x, cloud_down_lidar_->points[i].y, cloud_down_lidar_->points[i].z);
         V3D point_world(cloud_world->points[i].x, cloud_world->points[i].y, cloud_world->points[i].z);
         M3D point_lidar_var = vars_cloud_[i];
         M3D point_world_var = transformLidarCovToWorld(point_lidar, point_lidar_var);
+        pv.point = point_lidar;
+        pv.point_wolrd = point_world;
         pv.cov_lidar = point_lidar_var;
         pv.cov = point_world_var;
         pv_list[i] = pv;
@@ -225,6 +227,7 @@ void VoxelOdom::sharedUpdateFunc(state_ikfom& state, esekfom::dyn_share_datastru
         LOG_INFO("No Effective Points");
         return;
     }
+    LOG_INFO("find effective Points:{}", effct_feat_num);
     // 找到配准的点数，以及对位姿和外参的更新12维
     ekfom_data.h_x = Eigen::MatrixXd::Zero(effct_feat_num, 12);
     // 残差
@@ -258,6 +261,11 @@ void VoxelOdom::sharedUpdateFunc(state_ikfom& state, esekfom::dyn_share_datastru
         float pd2 = normal_vec.x() * ptpl_list[i].point_world.x() + normal_vec.y() * ptpl_list[i].point_world.y() +
                     normal_vec.z() * ptpl_list[i].point_world.z() + ptpl_list[i].d;
         ekfom_data.h(i) = -pd2;
+        LOG_INFO("norm[i]:{},{},{}", normal_vec.x(), normal_vec.y(), normal_vec.z());
+        LOG_INFO("point[i]:{},{},{}", ptpl_list[i].point_world.x(), ptpl_list[i].point_world.y(),
+                 ptpl_list[i].point_world.z());
+
+        total_residual += pd2;
         V3D point_world = ptpl_list[i].point_world;
         // /*** get the normal vector of closest surface/corner ***/
         Eigen::Matrix<double, 1, 6> J_nq;

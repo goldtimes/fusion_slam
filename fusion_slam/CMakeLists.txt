@@ -10,6 +10,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread  -fexceptions -O3")
 # 生成编译的依赖json文件
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
+set(CMAKE_BUILD_TYPE Debug)
 
 set(ROS_COMPONENTS 
   tf2
