@@ -7,6 +7,7 @@ lidar_type: avia
 num_scan: 6
 point_filter_num: 2
 blind: 0.2
+use_voxel_map: true
 
 local_rate: 20.0
 loop_rate: 1.0

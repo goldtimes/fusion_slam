@@ -1,10 +1,10 @@
 <launch>
     <rosparam command="load" file="$(find fusion_slam)/config/mapping.yaml" />  
-    <node name="map_node" pkg="fusion_slam" type="map_node" output="screen" >
+    <node name="map_node" pkg="fusion_slam" type="map_node" output="screen"  launch-prefix="gdb -ex run --args" >
     </node>
      <!-- <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz"  /> -->
      args="-d $(find fastlio)/rviz/mapping.rviz"
-     launch-prefix="gdb -ex run --args"
+    
      
      
 </launch>

@@ -18,13 +18,6 @@
 
 namespace slam {
 
-enum class SYSTEM_STATUES {
-    INITIALIZE,
-    RELOCALIZATION,
-    LOCALIZATION,
-    MAPPING,
-};
-
 class VoxelOdom {
    public:
     struct VoxelOdomConfig {
@@ -84,7 +77,7 @@ class VoxelOdom {
         return cloud_undistorted_lidar_;
     }
     PointCloudPtr cloudUndistortedBody();
-    PointCloudPtr cloudDownBody();
+    // PointCloudPtr cloudDownBody();
     void reset();
 
     PointCloudPtr transformWorld(const PointCloudPtr& cloud_in);
@@ -108,12 +101,14 @@ class VoxelOdom {
     bool extrinsic_est_en_;
     // 存储每帧雷达的cov
     std::vector<M3D> vars_cloud_;
-    // 点云
-    PointCloudPtr cloud_down_lidar_;
+    // 去畸变后的点云
     PointCloudPtr cloud_undistorted_lidar_;
+    // 去畸变且降采样后的点云
+    PointCloudPtr cloud_down_lidar_;
+    // 世界坐标下的点云
     PointCloudPtr cloud_down_world_;
-
-    PointCloudPtr feats_with_correspondence;
+    //
+    // PointCloudPtr feats_with_correspondence;
     double total_residual = 0;
     double res_mean_last = 0.0;
 };

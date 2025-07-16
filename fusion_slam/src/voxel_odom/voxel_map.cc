@@ -347,6 +347,7 @@ void buildVoxelMap(const std::vector<PointWithCov>& input_points, const float vo
                    const std::vector<int>& layer_point_size, const int max_points_size, const int max_cov_points_size,
                    const float plane_thresh, std::unordered_map<VOXEL_KEY, OctoTree*>& feat_map) {
     uint point_size = input_points.size();
+    LOG_INFO("input size:{}", point_size);
     // 遍历所有的点，计算体素坐标
     for (uint i = 0; i < point_size; ++i) {
         const PointWithCov p_v = input_points[i];
@@ -433,7 +434,7 @@ void updateVoxelMapOMP(const std::vector<PointWithCov>& input_points, const floa
     start_time = std::chrono::high_resolution_clock::now();
 #ifdef MP_EN
     omp_set_num_threads(MP_PROC_NUM);
-#pragma omp parallel for default(none) shared(position_updates, feat_map);
+#pragma omp parallel for default(none) shared(position_updates, feat_map)
 #endif
     //  先遍历bucket 理想情况下bucket一般只有一个元素 这样还是相当于完全并行的遍历position_index_map
     for (size_t b = 0; b < position_updates.bucket_count(); b++) {

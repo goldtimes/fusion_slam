@@ -20,7 +20,7 @@
 #include "loop_closure.hh"
 #include "ros/publisher.h"
 #include "ros/rate.h"
-
+#include "voxel_odom/voxel_odom.hh"
 namespace slam {
 class MapBuildNode {
    public:
@@ -38,6 +38,7 @@ class MapBuildNode {
         bool align_gravity;
         M3D imu_ext_rot;
         V3D imu_ext_pos;
+        bool use_voxel_map;
     };
 
    public:
@@ -118,6 +119,9 @@ class MapBuildNode {
     state_ikfom current_state_;
     std::shared_ptr<FastlioOdom> fastlio_odom_ptr_;
     FastlioOdom::FastlioOdomConfig fastlio_odom_config_;
+
+    std::shared_ptr<VoxelOdom> voxel_odom_ptr_;
+    VoxelOdom::VoxelOdomConfig voxel_odom_config_;
 
     std::mutex mtx;
 

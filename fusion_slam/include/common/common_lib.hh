@@ -23,6 +23,13 @@
 
 namespace slam {
 
+enum class SYSTEM_STATUES {
+    INITIALIZE,
+    RELOCALIZATION,
+    LOCALIZATION,
+    MAPPING,
+};
+
 constexpr int NUM_MATCH_POINTS = 5;
 constexpr double G_m_s2 = 9.81;
 

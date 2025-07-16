@@ -17,6 +17,7 @@
 
 namespace slam {
 VoxelOdom::VoxelOdom(const VoxelOdomConfig& config) {
+    LOG_INFO("Voxel Odom Init");
     // 初始化ESIKF
     kf_ = std::make_shared<esekfom::esekf<state_ikfom, PROCESS_NOISE_DOF, input_ikfom>>();
     std::vector<double> epsi(23, 0.001);
@@ -43,7 +44,7 @@ VoxelOdom::VoxelOdom(const VoxelOdomConfig& config) {
     cloud_down_lidar_.reset(new PointCloud);
     cloud_undistorted_lidar_.reset(new PointCloud);
     cloud_down_world_.reset(new PointCloud);
-    feats_with_correspondence.reset(new PointCloud);
+    // feats_with_correspondence.reset(new PointCloud);
 }
 
 void VoxelOdom::mapping(MeasureGroup& sync_packag) {
@@ -58,6 +59,8 @@ void VoxelOdom::mapping(MeasureGroup& sync_packag) {
     // 滤波
     voxel_filter_.setInputCloud(cloud_undistorted_lidar_);
     voxel_filter_.filter(*cloud_down_lidar_);
+    // 清空该点云
+    cloud_undistorted_lidar_.reset(new PointCloud);
     if (system_status_ == SYSTEM_STATUES::INITIALIZE) {
         // 转换点云到世界坐标系下
         cloud_down_world_ = transformWorld(cloud_down_lidar_);
@@ -96,7 +99,6 @@ void VoxelOdom::mapping(MeasureGroup& sync_packag) {
         LOG_ERROR("No point, skip this scan");
     }
     // 计算lidar每个点的协方差
-
     vars_cloud_.clear();
     vars_cloud_.reserve(point_size);
     for (auto& pt : cloud_down_lidar_->points) {
@@ -122,7 +124,7 @@ void VoxelOdom::mapping(MeasureGroup& sync_packag) {
         V3D point_wolrd(cloud_world->points[i].x, cloud_world->points[i].y, cloud_world->points[i].z);
 
         M3D point_lidar_cov = vars_cloud_[i];
-        M3D point_world_cov = transformLidarCovToWorld(point_lidar, point_lidar);
+        M3D point_world_cov = transformLidarCovToWorld(point_lidar, point_lidar_cov);
         pv.point = point_lidar;
         pv.point_wolrd = point_wolrd;
         pv.cov_lidar = point_lidar_cov;
@@ -130,12 +132,16 @@ void VoxelOdom::mapping(MeasureGroup& sync_packag) {
         pv_world_list.push_back(pv);
     }
     start = std::chrono::high_resolution_clock::now();
-    std::sort(pv_world_list.begin(), pv_world_list.end(), []() {});
+    std::sort(pv_world_list.begin(), pv_world_list.end(), [](const PointWithCov& pv_1, const PointWithCov& pv_2) {
+        return pv_1.cov.diagonal().norm() < pv_2.cov.diagonal().norm();
+    });
     updateVoxelMapOMP(pv_world_list, params.voxel_size, params.max_layer, params.update_size_threshes,
                       params.max_point_thresh, params.max_point_cov_thresh, params.plane_thresh, voxel_map_);
     end = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     LOG_INFO("Update Voxel Map", duration.count() * 1e-3);
+    // 最后保存世界坐标系下的点云
+    cloud_down_world_ = transformWorld(cloud_down_lidar_);
 }
 
 M3D VoxelOdom::calcBodyCov(const V3D& point_lidar, double range_inc, double angle_inc) {
@@ -188,7 +194,7 @@ M3D VoxelOdom::transformLidarCovToWorld(const V3D& point_lidar, const M3D& cov_l
 }
 
 void VoxelOdom::sharedUpdateFunc(state_ikfom& state, esekfom::dyn_share_datastruct<double>& ekfom_data) {
-    feats_with_correspondence->clear();
+    // feats_with_correspondence->clear();
     total_residual = 0.0;
     // 迭代卡尔曼滤波，根据最新的位姿来讲点云转到世界坐标系
     std::vector<PointWithCov> pv_list;
@@ -201,7 +207,7 @@ void VoxelOdom::sharedUpdateFunc(state_ikfom& state, esekfom::dyn_share_datastru
         V3D point_lidar(cloud_down_world_->points[i].x, cloud_down_world_->points[i].y, cloud_down_world_->points[i].z);
         V3D point_world(cloud_world->points[i].x, cloud_world->points[i].y, cloud_world->points[i].z);
         M3D point_lidar_var = vars_cloud_[i];
-        M3D point_world_var = transformLidarCovToWorld(point_lidar, point_lidar);
+        M3D point_world_var = transformLidarCovToWorld(point_lidar, point_lidar_var);
         pv.cov_lidar = point_lidar_var;
         pv.cov = point_world_var;
         pv_list[i] = pv;
@@ -296,6 +302,24 @@ PointCloudPtr VoxelOdom::transformWorld(const PointCloudPtr& cloud_in) {
         cloud_world->push_back(point_world);
     }
     return cloud_world;
+}
+
+PointCloudPtr VoxelOdom::cloudUndistortedBody() {
+    PointCloudPtr cloud_undistorted_body(new PointCloud);
+    Eigen::Matrix3d rot = kf_->get_x().offset_R_L_I.toRotationMatrix();
+    Eigen::Vector3d pos = kf_->get_x().offset_T_L_I;
+    cloud_undistorted_body->reserve(cloud_down_lidar_->size());
+    for (auto& p : cloud_down_lidar_->points) {
+        Eigen::Vector3d point(p.x, p.y, p.z);
+        point = rot * point + pos;
+        PointType p_body;
+        p_body.x = point(0);
+        p_body.y = point(1);
+        p_body.z = point(2);
+        p_body.intensity = p.intensity;
+        cloud_undistorted_body->points.push_back(p_body);
+    }
+    return cloud_undistorted_body;
 }
 
 }  // namespace slam

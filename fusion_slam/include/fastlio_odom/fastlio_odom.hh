@@ -12,12 +12,7 @@ class IMUProcessor;
 
 namespace slam {
 
-enum class SYSTEM_STATUES {
-    INITIALIZE,
-    RELOCALIZATION,
-    LOCALIZATION,
-    MAPPING,
-};
+
 
 struct LocalMap {
     double cube_len;

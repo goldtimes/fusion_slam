@@ -149,7 +149,7 @@ void build_single_residual(const PointWithCov& pv, const OctoTree* current_octo,
 namespace std {
 template <>
 struct hash<slam::VOXEL_KEY> {
-    int64_t operator()(const slam::VOXEL_KEY& s) {
+    int64_t operator()(const slam::VOXEL_KEY& s) const {
         using std::hash;
         using std::size_t;
         return ((((s.z) * HASH_P) % MAX_N + (s.y)) * HASH_P) % MAX_N + (s.x);

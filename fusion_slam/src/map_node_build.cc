@@ -30,7 +30,7 @@ MapBuildNode::MapBuildNode(const ros::NodeHandle& nh) : nh_(nh) {
     init_sub_pub();
     lidar_process_ptr_ = std::make_shared<LidarProcess>(lidar_process_config_);
     fastlio_odom_ptr_ = std::make_shared<FastlioOdom>(fastlio_odom_config_);
-
+    voxel_odom_ptr_ = std::make_shared<VoxelOdom>(voxel_odom_config_);
     loop_closure_.setRate(loop_rate_);
     shared_data = std::make_shared<SharedData>();
     loop_closure_.setShared(shared_data);
@@ -86,6 +86,8 @@ void MapBuildNode::load_params() {
     lidar_process_config_.N_SCAN = 6;
     lidar_process_config_.blind = 0.2;
     lidar_process_config_.point_filter_num = 2;
+    nh_.param<bool>("use_voxel_map", config_.use_voxel_map, false);
+
     nh_.param<std::string>("global_frame", config_.global_frame_, "map");
     nh_.param<std::string>("local_frame", config_.local_frame_, "local");
     nh_.param<std::string>("body_frame", config_.body_frame_, "body");
@@ -136,6 +138,8 @@ void MapBuildNode::load_params() {
     fastlio_odom_config_.resolution = config_.map_resolution;
     fastlio_odom_config_.imu_ext_rot = config_.imu_ext_rot;
     fastlio_odom_config_.imu_ext_pos = config_.imu_ext_pos;
+    voxel_odom_config_.imu_ext_pos = config_.imu_ext_pos;
+    voxel_odom_config_.imu_ext_rot = config_.imu_ext_rot;
 }
 void MapBuildNode::init_sub_pub() {
     imu_sub_ = nh_.subscribe(config_.imu_topic_, 200, &MapBuildNode::imu_callback, this);
@@ -211,12 +215,20 @@ void MapBuildNode::Run() {
             continue;
         }
         // LOG_INFO("SyncPackage Success");
-        fastlio_odom_ptr_->mapping(sync_package);
-        if (fastlio_odom_ptr_->GetSystemStatus() == SYSTEM_STATUES::INITIALIZE) {
-            continue;
+        if (!config_.use_voxel_map) {
+            fastlio_odom_ptr_->mapping(sync_package);
+            if (fastlio_odom_ptr_->GetSystemStatus() == SYSTEM_STATUES::INITIALIZE) {
+                continue;
+            }
+        } else {
+            voxel_odom_ptr_->mapping(sync_package);
+            if (voxel_odom_ptr_->GetSystemStatus() == SYSTEM_STATUES::INITIALIZE) {
+                continue;
+            }
         }
         current_time_ = sync_package.lidar_end_time;
-        current_state_ = fastlio_odom_ptr_->GetCurrentState();
+        current_state_ =
+            config_.use_voxel_map ? voxel_odom_ptr_->GetCurrentState() : fastlio_odom_ptr_->GetCurrentState();
         // 发布tf
         // odom->map的变换一开始是重合的，但是里程计因为有漂移之后，我们检测到了回环，优化了整个里程计的位姿之后，这个offset_rot,offset_trans就代表了odom->map的偏移，肯定不重合了
         tf_broadcaster_.sendTransform(eigen2Transform(shared_data->offset_rot, shared_data->offset_trans,
@@ -227,11 +239,17 @@ void MapBuildNode::Run() {
 
         publishOdom(eigen2Odometry(current_state_.rot.toRotationMatrix(), current_state_.pos, config_.local_frame_,
                                    config_.body_frame_, current_time_));
-
-        publishCloud(body_cloud_pub_,
-                     pcl2msg(fastlio_odom_ptr_->cloudUndistortedBody(), config_.body_frame_, current_time_));
-        publishCloud(world_cloud_pub_,
-                     pcl2msg(fastlio_odom_ptr_->GetcCloudWorld(), config_.local_frame_, current_time_));
+        if (!config_.use_voxel_map) {
+            publishCloud(body_cloud_pub_,
+                         pcl2msg(fastlio_odom_ptr_->cloudUndistortedBody(), config_.body_frame_, current_time_));
+            publishCloud(world_cloud_pub_,
+                         pcl2msg(fastlio_odom_ptr_->GetcCloudWorld(), config_.local_frame_, current_time_));
+        } else {
+            publishCloud(body_cloud_pub_,
+                         pcl2msg(voxel_odom_ptr_->cloudUndistortedBody(), config_.body_frame_, current_time_));
+            publishCloud(world_cloud_pub_,
+                         pcl2msg(voxel_odom_ptr_->GetcCloudWorld(), config_.local_frame_, current_time_));
+        }
         // 接下来需要处理关键位姿，将关键位姿发布给闭环检测线程
         addKeypose();
         publishLocalPath();
