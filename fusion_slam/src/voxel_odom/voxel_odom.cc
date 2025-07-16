@@ -74,13 +74,67 @@ void VoxelOdom::mapping(MeasureGroup& sync_packag) {
                 point_lidar[2] = 0.001;
             }
             M3D cov_lidar = calcBodyCov(point_lidar, params.ranging_cov, params.angle_cov);
+            // 计算世界坐标下的cov
+            M3D cov_world = transformLidarCovToWorld(point_lidar, cov_lidar);
+            pv.cov_lidar = cov_lidar;
+            pv.cov = cov_world;
+            pv_list.push_back(pv);
         }
         // 构建第一帧的voxel_map
-        // 计算世界坐标系下点的协方差
+        buildVoxelMap(pv_list, params.voxel_size, params.max_layer, params.update_size_threshes,
+                      params.max_point_thresh, params.max_point_cov_thresh, params.plane_thresh, voxel_map_);
+        LOG_INFO("Build Voxel Map Size:{}", pv_list.size());
         system_status_ = SYSTEM_STATUES::MAPPING;
         return;
     }
-    // update
+    // align
+    std::sort(cloud_down_lidar_->begin(), cloud_down_lidar_->end(),
+              [](const PointType& p1, const PointType& p2) { return p1.curvature < p2.curvature; });
+    auto point_size = cloud_down_lidar_->size();
+    if (point_size < 5) {
+        LOG_ERROR("No point, skip this scan");
+    }
+    // 计算lidar每个点的协方差
+
+    vars_cloud_.clear();
+    vars_cloud_.reserve(point_size);
+    for (auto& pt : cloud_down_lidar_->points) {
+        V3D point_lidar(pt.x, pt.y, pt.z);
+        M3D point_cov = calcBodyCov(point_lidar, params.ranging_cov, params.angle_cov);
+        vars_cloud_.push_back(point_cov);
+    }
+    double solve_H_time;
+    auto start = std::chrono::high_resolution_clock::now();
+    kf_->update_iterated_dyn_share_modified(0.001, solve_H_time);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    LOG_INFO("Align By Voxel used time:{}", duration.count() * 1e-3);
+    // print state
+    // Update Voxel map
+    std::vector<PointWithCov> pv_world_list;
+    pv_world_list.reserve(cloud_down_lidar_->size());
+    // 根据最新的状态，将点云转到world系
+    PointCloudPtr cloud_world = transformWorld(cloud_down_lidar_);
+    for (size_t i = 0; i < cloud_world->size(); ++i) {
+        PointWithCov pv;
+        V3D point_lidar(cloud_down_lidar_->points[i].x, cloud_down_lidar_->points[i].y, cloud_down_lidar_->points[i].z);
+        V3D point_wolrd(cloud_world->points[i].x, cloud_world->points[i].y, cloud_world->points[i].z);
+
+        M3D point_lidar_cov = vars_cloud_[i];
+        M3D point_world_cov = transformLidarCovToWorld(point_lidar, point_lidar);
+        pv.point = point_lidar;
+        pv.point_wolrd = point_wolrd;
+        pv.cov_lidar = point_lidar_cov;
+        pv.cov = point_world_cov;
+        pv_world_list.push_back(pv);
+    }
+    start = std::chrono::high_resolution_clock::now();
+    std::sort(pv_world_list.begin(), pv_world_list.end(), []() {});
+    updateVoxelMapOMP(pv_world_list, params.voxel_size, params.max_layer, params.update_size_threshes,
+                      params.max_point_thresh, params.max_point_cov_thresh, params.plane_thresh, voxel_map_);
+    end = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    LOG_INFO("Update Voxel Map", duration.count() * 1e-3);
 }
 
 M3D VoxelOdom::calcBodyCov(const V3D& point_lidar, double range_inc, double angle_inc) {
@@ -110,6 +164,26 @@ M3D VoxelOdom::calcBodyCov(const V3D& point_lidar, double range_inc, double angl
     N << base_vector1(0), base_vector2(0), base_vector1(1), base_vector2(1), base_vector1(2), base_vector2(2);
     Eigen::Matrix<double, 3, 2> A = range * direction_hat * N;
     return direction * range_var * direction.transpose() + A * direction_var * A.transpose();
+}
+
+M3D VoxelOdom::transformLidarCovToWorld(const V3D& point_lidar, const M3D& cov_lidar) {
+    M3D point_hat;
+    point_hat << SKEW_SYM_MATRX(point_lidar);
+    auto state = kf_->get_x();
+    M3D R_IL_cov = kf_->get_P().block<3, 3>(6, 6);
+    M3D t_IL_cov = kf_->get_P().block<3, 3>(9, 9);
+    M3D cov_body = state.offset_R_L_I * cov_lidar * state.offset_R_L_I.conjugate() +
+                   state.offset_R_L_I * (-point_hat) * R_IL_cov * (-point_hat).transpose() + t_IL_cov;
+    // 转到到body坐标系
+    V3D point_body = state.offset_R_L_I * point_lidar + state.offset_T_L_I;
+
+    // 计算世界坐标系下的cov;
+    point_hat << SKEW_SYM_MATRX(point_body);
+    M3D rot_var = kf_->get_P().block<3, 3>(3, 3);
+    M3D trans_var = kf_->get_P().block<3, 3>(0, 0);
+    M3D cov_world = state.rot * cov_body * state.rot.conjugate() +
+                    state.rot * (-point_hat) * rot_var * (-point_hat).transpose() * state.rot.conjugate() + trans_var;
+    return cov_world;
 }
 
 void VoxelOdom::sharedUpdateFunc(state_ikfom& state, esekfom::dyn_share_datastruct<double>& ekfom_data) {

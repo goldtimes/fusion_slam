@@ -18,6 +18,8 @@
 #include "sensors/imu.hh"
 #include "sensors/lidar.hh"
 
+#define SKEW_SYM_MATRX(v) 0.0, -v[2], v[1], v[2], 0.0, -v[0], -v[1], v[0], 0.0
+
 namespace slam {
 
 constexpr int NUM_MATCH_POINTS = 5;

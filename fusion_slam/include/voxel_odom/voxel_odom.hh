@@ -47,6 +47,7 @@ class VoxelOdom {
         bool extrinsic_est_en = false;
         bool align_gravity = false;
         int max_point_thresh = 100;
+        int max_point_cov_thresh = 100;
         double plane_thresh = 0.01;
 
         double ranging_cov = 0.04;
@@ -90,6 +91,7 @@ class VoxelOdom {
 
    private:
     M3D calcBodyCov(const V3D& point_lidar, double range_cov, double angle_cov);
+    M3D transformLidarCovToWorld(const V3D& point_lidar, const M3D& cov_lidar);
 
    private:
     VoxelOdomConfig params;
@@ -104,6 +106,8 @@ class VoxelOdom {
     std::unordered_map<VOXEL_KEY, OctoTree*> voxel_map_;
     // 估计外参
     bool extrinsic_est_en_;
+    // 存储每帧雷达的cov
+    std::vector<M3D> vars_cloud_;
     // 点云
     PointCloudPtr cloud_down_lidar_;
     PointCloudPtr cloud_undistorted_lidar_;
