@@ -32,19 +32,19 @@ class VoxelOdom {
         // 外参信息
         M3D imu_ext_rot;
         V3D imu_ext_pos;
-        double scan_resolution = 0.1;
+        double scan_resolution = 0.3;
         int max_layer = 5;
         double voxel_size = 0.5;
         std::vector<int> update_size_threshes = std::vector<int>{5, 5, 5, 5, 5};
         int imu_init_num = 20;
         bool extrinsic_est_en = false;
         bool align_gravity = true;
-        int max_point_thresh = 100;
-        int max_point_cov_thresh = 100;
+        int max_point_thresh = 1000;
+        int max_point_cov_thresh = 1000;
         double plane_thresh = 0.01;
 
-        double ranging_cov = 0.04;
-        double angle_cov = 0.1;
+        double ranging_cov = 0.02;
+        double angle_cov = 0.05;
     };
 
    public:
