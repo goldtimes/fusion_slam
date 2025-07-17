@@ -38,7 +38,7 @@ class VoxelOdom {
         std::vector<int> update_size_threshes = std::vector<int>{5, 5, 5, 5, 5};
         int imu_init_num = 20;
         bool extrinsic_est_en = false;
-        bool align_gravity = false;
+        bool align_gravity = true;
         int max_point_thresh = 100;
         int max_point_cov_thresh = 100;
         double plane_thresh = 0.01;
@@ -96,7 +96,7 @@ class VoxelOdom {
     // 体素滤波
     pcl::VoxelGrid<PointType> voxel_filter_;
     // voxel map
-    std::unordered_map<VOXEL_KEY, OctoTree*> voxel_map_;
+    std::unordered_map<VOXEL_LOC, OctoTree*> voxel_map_;
     // 估计外参
     bool extrinsic_est_en_;
     // 存储每帧雷达的cov

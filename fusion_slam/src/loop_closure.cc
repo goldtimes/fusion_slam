@@ -191,42 +191,42 @@ void LoopClosure::OptimizeAndUpdate() {
 }
 
 void LoopClosure::operator()() {
-    while (ros::ok()) {
-        loop_rate_->sleep();
-        if (!loop_params.active) {
-            continue;
-        }
-        // keypose 为空或者小于阈值
-        if (shared_data_ptr_->key_poses.empty()) {
-            LOG_INFO("key_pose_empty");
-            continue;
-        }
+    // while (ros::ok()) {
+    //     loop_rate_->sleep();
+    //     if (!loop_params.active) {
+    //         continue;
+    //     }
+    //     // keypose 为空或者小于阈值
+    //     if (shared_data_ptr_->key_poses.empty()) {
+    //         LOG_INFO("key_pose_empty");
+    //         continue;
+    //     }
 
-        if (shared_data_ptr_->key_poses.size() < loop_params.loop_pose_search_thresh) {
-            LOG_INFO("key_pose:{} < pose_thresh:{}", shared_data_ptr_->key_poses.size(),
-                     loop_params.loop_pose_search_thresh);
-            continue;
-        }
-        // 没有添加keypose
-        if (!shared_data_ptr_->key_pose_added) {
-            continue;
-        }
-        // 清空标志位
-        shared_data_ptr_->key_pose_added = false;
-        {
-            // 加锁
-            std::lock_guard<std::mutex> lck(shared_data_ptr_->shared_data_mutex);
-            lastest_index_ = shared_data_ptr_->key_poses.size() - 1;
-            LOG_INFO("lastest_index:{}", lastest_index_);
-            temp_poses_.clear();
-            // copy keyposes
-            temp_poses_.assign(shared_data_ptr_->key_poses.begin(), shared_data_ptr_->key_poses.end());
-        }
-        LoopCheck();
-        AddOdomFactor();
-        AddLoopFactor();
-        OptimizeAndUpdate();
-    }
+    //     if (shared_data_ptr_->key_poses.size() < loop_params.loop_pose_search_thresh) {
+    //         LOG_INFO("key_pose:{} < pose_thresh:{}", shared_data_ptr_->key_poses.size(),
+    //                  loop_params.loop_pose_search_thresh);
+    //         continue;
+    //     }
+    //     // 没有添加keypose
+    //     if (!shared_data_ptr_->key_pose_added) {
+    //         continue;
+    //     }
+    //     // 清空标志位
+    //     shared_data_ptr_->key_pose_added = false;
+    //     {
+    //         // 加锁
+    //         std::lock_guard<std::mutex> lck(shared_data_ptr_->shared_data_mutex);
+    //         lastest_index_ = shared_data_ptr_->key_poses.size() - 1;
+    //         LOG_INFO("lastest_index:{}", lastest_index_);
+    //         temp_poses_.clear();
+    //         // copy keyposes
+    //         temp_poses_.assign(shared_data_ptr_->key_poses.begin(), shared_data_ptr_->key_poses.end());
+    //     }
+    //     LoopCheck();
+    //     AddOdomFactor();
+    //     AddLoopFactor();
+    //     OptimizeAndUpdate();
+    // }
 }  // namespace slam
 PointCloudPtr LoopClosure::GetSubmap(const std::vector<Pose6D>& pose_list,
                                      const std::vector<PointCloudPtr>& cloud_historty, int start_index,

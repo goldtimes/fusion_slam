@@ -64,15 +64,15 @@ void VoxelOdom::mapping(MeasureGroup& sync_packag) {
     if (system_status_ == SYSTEM_STATUES::INITIALIZE) {
         // 转换点云到世界坐标系下
         cloud_down_world_ = transformWorld(cloud_down_lidar_);
-        std::vector<PointWithCov> pv_list;
+        std::vector<pointWithCov> pv_list;
         for (int i = 0; i < cloud_down_world_->size(); ++i) {
-            PointWithCov pv;
+            pointWithCov pv;
             V3D point_lidar(cloud_down_lidar_->points[i].x, cloud_down_lidar_->points[i].y,
                             cloud_down_lidar_->points[i].z);
             V3D point_world(cloud_down_world_->points[i].x, cloud_down_world_->points[i].y,
                             cloud_down_world_->points[i].z);
             pv.point = point_world;
-            pv.point_wolrd = point_world;
+            pv.point_world = point_world;
             // 防止为0
             if (point_lidar[2] == 0.0) {
                 point_lidar[2] = 0.001;
@@ -114,25 +114,25 @@ void VoxelOdom::mapping(MeasureGroup& sync_packag) {
     LOG_INFO("Align By Voxel used time:{}", duration.count() * 1e-3);
     // print state
     // Update Voxel map
-    std::vector<PointWithCov> pv_world_list;
+    std::vector<pointWithCov> pv_world_list;
     pv_world_list.reserve(cloud_down_lidar_->size());
     // 根据最新的状态，将点云转到world系
     PointCloudPtr cloud_world = transformWorld(cloud_down_lidar_);
     for (size_t i = 0; i < cloud_world->size(); ++i) {
-        PointWithCov pv;
+        pointWithCov pv;
         V3D point_lidar(cloud_down_lidar_->points[i].x, cloud_down_lidar_->points[i].y, cloud_down_lidar_->points[i].z);
         V3D point_wolrd(cloud_world->points[i].x, cloud_world->points[i].y, cloud_world->points[i].z);
 
         M3D point_lidar_cov = vars_cloud_[i];
         M3D point_world_cov = transformLidarCovToWorld(point_lidar, point_lidar_cov);
         pv.point = point_wolrd;
-        pv.point_wolrd = point_wolrd;
+        pv.point_world = point_wolrd;
         pv.cov_lidar = point_lidar_cov;
         pv.cov = point_world_cov;
         pv_world_list.push_back(pv);
     }
     start = std::chrono::high_resolution_clock::now();
-    std::sort(pv_world_list.begin(), pv_world_list.end(), [](const PointWithCov& pv_1, const PointWithCov& pv_2) {
+    std::sort(pv_world_list.begin(), pv_world_list.end(), [](const pointWithCov& pv_1, const pointWithCov& pv_2) {
         return pv_1.cov.diagonal().norm() < pv_2.cov.diagonal().norm();
     });
     updateVoxelMapOMP(pv_world_list, params.voxel_size, params.max_layer, params.update_size_threshes,
@@ -197,19 +197,21 @@ void VoxelOdom::sharedUpdateFunc(state_ikfom& state, esekfom::dyn_share_datastru
     // feats_with_correspondence->clear();
     total_residual = 0.0;
     // 迭代卡尔曼滤波，根据最新的位姿来讲点云转到世界坐标系
-    std::vector<PointWithCov> pv_list;
+    std::vector<pointWithCov> pv_list;
     PointCloudPtr cloud_world(new PointCloud);
     cloud_world = transformWorld(cloud_down_lidar_);
     LOG_INFO("[Voxel Align] cloud size:{}", cloud_world->size());
     pv_list.resize(cloud_world->size());
     for (size_t i = 0; i < cloud_down_lidar_->size(); ++i) {
-        PointWithCov pv;
+        pointWithCov pv;
         V3D point_lidar(cloud_down_lidar_->points[i].x, cloud_down_lidar_->points[i].y, cloud_down_lidar_->points[i].z);
         V3D point_world(cloud_world->points[i].x, cloud_world->points[i].y, cloud_world->points[i].z);
         M3D point_lidar_var = vars_cloud_[i];
         M3D point_world_var = transformLidarCovToWorld(point_lidar, point_lidar_var);
         pv.point = point_lidar;
-        pv.point_wolrd = point_world;
+        pv.point_world = point_world;
+        // LOG_INFO("[i]:{},{},{}", point_lidar.x(), point_lidar.y(), point_lidar.z());
+
         pv.cov_lidar = point_lidar_var;
         pv.cov = point_world_var;
         pv_list[i] = pv;
@@ -261,9 +263,9 @@ void VoxelOdom::sharedUpdateFunc(state_ikfom& state, esekfom::dyn_share_datastru
         float pd2 = normal_vec.x() * ptpl_list[i].point_world.x() + normal_vec.y() * ptpl_list[i].point_world.y() +
                     normal_vec.z() * ptpl_list[i].point_world.z() + ptpl_list[i].d;
         ekfom_data.h(i) = -pd2;
-        LOG_INFO("norm[i]:{},{},{}", normal_vec.x(), normal_vec.y(), normal_vec.z());
-        LOG_INFO("point[i]:{},{},{}", ptpl_list[i].point_world.x(), ptpl_list[i].point_world.y(),
-                 ptpl_list[i].point_world.z());
+        // LOG_INFO("norm[i]:{},{},{}", normal_vec.x(), normal_vec.y(), normal_vec.z());
+        // LOG_INFO("point[i]:{},{},{}", ptpl_list[i].point_world.x(), ptpl_list[i].point_world.y(),
+        //          ptpl_list[i].point_world.z());
 
         total_residual += pd2;
         V3D point_world = ptpl_list[i].point_world;

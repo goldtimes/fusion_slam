@@ -36,7 +36,7 @@ MapBuildNode::MapBuildNode(const ros::NodeHandle& nh) : nh_(nh) {
     loop_closure_.setShared(shared_data);
     loop_closure_.Init();
     // 创建线程
-    loop_closure_thread_ = std::make_shared<std::thread>(std::ref(loop_closure_));
+    // loop_closure_thread_ = std::make_shared<std::thread>(std::ref(loop_closure_));
     LOG_INFO("MapBuildNode initied.....");
 }
 
@@ -256,7 +256,7 @@ void MapBuildNode::Run() {
         publishGlobalPath();
         publishLoopMark();
     }
-    loop_closure_thread_->join();
+    // loop_closure_thread_->join();
     std::cout << "MAPPING NODE IS DOWN!" << std::endl;
 }
 
