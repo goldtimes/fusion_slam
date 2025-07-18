@@ -14,7 +14,7 @@
 #include "common/logger.hh"
 #include "imu_process.hh"
 #include "sensors/lidar.hh"
-#include "voxel_map.hh"
+#include "voxelmap.hh"
 
 namespace slam {
 
@@ -96,7 +96,8 @@ class VoxelOdom {
     // 体素滤波
     pcl::VoxelGrid<PointType> voxel_filter_;
     // voxel map
-    std::unordered_map<VOXEL_LOC, OctoTree*> voxel_map_;
+    // std::unordered_map<VOXEL_LOC, OctoTree*> voxel_map_;
+    std::shared_ptr<VoxelMap> voxel_map_;
     // 估计外参
     bool extrinsic_est_en_;
     // 存储每帧雷达的cov
@@ -111,5 +112,6 @@ class VoxelOdom {
     // PointCloudPtr feats_with_correspondence;
     double total_residual = 0;
     double res_mean_last = 0.0;
+    std::vector<ResidualData> residual_info;
 };
 }  // namespace slam

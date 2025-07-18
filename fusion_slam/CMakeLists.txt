@@ -102,7 +102,7 @@ add_executable(map_node
   src/lidar_process.cc
   src/fastlio_odom/fastlio_odom.cc
   src/imu_process.cc
-  src/voxel_odom/voxel_map.cc
+  src/voxel_odom/voxelmap.cc
   src/voxel_odom/voxel_odom.cc
   src/static_imu_init.cc
   include/fastlio_odom/ikd-Tree/ikd_Tree.cpp
